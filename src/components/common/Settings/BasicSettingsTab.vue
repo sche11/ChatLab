@@ -8,6 +8,7 @@ import { useColorMode } from '@vueuse/core'
 import { availableLocales, type LocaleType } from '@/i18n'
 import NetworkSettingsSection from './NetworkSettingsSection.vue'
 import UITabs from '@/components/UI/Tabs.vue'
+import { IS_ELECTRON } from '@/utils/platform'
 
 const { t } = useI18n()
 
@@ -22,6 +23,10 @@ const openAtLogin = ref(false)
 const isPackaged = ref(true)
 
 onMounted(async () => {
+  if (!IS_ELECTRON) {
+    isPackaged.value = false
+    return
+  }
   try {
     const enabled = await window.api.app.getOpenAtLogin()
     openAtLogin.value = enabled
@@ -31,6 +36,7 @@ onMounted(async () => {
 })
 
 async function handleAutoLaunchChange(enabled: boolean) {
+  if (!IS_ELECTRON) return
   const { success } = await window.api.app.setOpenAtLogin(enabled)
   if (!success) {
     openAtLogin.value = !enabled
@@ -77,11 +83,12 @@ const toolsPanelPositionOptions = computed(() => [
   { label: t('settings.basic.toolsPanel.positionSide'), value: 'side' },
 ])
 
-// Sync theme with main process
+// Sync theme with main process (Electron only)
 import { watch } from 'vue'
 watch(
   colorMode,
   (val) => {
+    if (!IS_ELECTRON) return
     const mode = val === 'auto' ? 'system' : (val as 'light' | 'dark')
     window.api.setThemeSource(mode)
   },
