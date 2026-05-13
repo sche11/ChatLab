@@ -53,12 +53,7 @@ function parseTimeFilter(query: Record<string, string | undefined>): TimeFilter 
   return filter
 }
 
-export async function registerWebRoutes(server: FastifyInstance, dbManager: DatabaseManager): Promise<void> {
-  const multipart = await import('@fastify/multipart')
-  await server.register(multipart.default, {
-    limits: { fileSize: 1024 * 1024 * 1024 }, // 1GB
-  })
-
+export function registerWebRoutes(server: FastifyInstance, dbManager: DatabaseManager): void {
   // ==================== 会话管理 ====================
 
   server.get('/_web/sessions', async () => {

@@ -86,9 +86,15 @@ export async function startHttpServer(options?: HttpServerOptions): Promise<{
   setAuthToken(token)
 
   server = createServer()
+
+  const multipart = await import('@fastify/multipart')
+  await server.register(multipart.default, {
+    limits: { fileSize: 1024 * 1024 * 1024 }, // 1GB
+  })
+
   registerSystemRoutes(server, dbManager)
   registerSessionRoutes(server, dbManager)
-  await registerWebRoutes(server, dbManager)
+  registerWebRoutes(server, dbManager)
 
   // 托管 Web SPA 静态资源
   if (options?.webRoot && fs.existsSync(options.webRoot)) {
