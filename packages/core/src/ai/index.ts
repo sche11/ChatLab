@@ -1,0 +1,24 @@
+/**
+ * AI 模块（平台无关的静态数据和类型）
+ */
+
+// 内置工具目录
+export type { ToolCategory, BuiltinToolCatalogEntry } from './tool-catalog'
+export { BUILTIN_TOOL_CATALOG } from './tool-catalog'
+
+// LLM 模型系统类型
+export type {
+  ProviderKind,
+  ProviderDefinition,
+  ModelCapability,
+  ModelStatus,
+  ModelRecommendedFor,
+  ModelDefinition,
+  ModelSlot,
+} from './model-types'
+
+// Provider Registry（内置 provider 目录）
+export { BUILTIN_PROVIDERS, getBuiltinProviderById } from './provider-registry'
+
+// Model Catalog（内置模型目录）
+export { BUILTIN_MODELS, getBuiltinModelsByProvider, getBuiltinModelById } from './model-catalog'

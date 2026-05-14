@@ -29,3 +29,7 @@ export {
   deleteDict,
   ensureDefaultDict,
 } from './nlp'
+
+// AI 助手/技能解析器
+export type { AssistantConfig, AssistantSummary, SkillDef, SkillSummary } from './ai'
+export { parseAssistantFile, serializeAssistant, parseSkillFile, extractSkillId } from './ai'

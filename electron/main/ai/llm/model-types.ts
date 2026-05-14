@@ -1,48 +1,24 @@
 /**
- * 模型系统核心类型定义
- * 基于 Provider Registry + Model Catalog 分层架构
+ * 模型系统核心类型定义 — 从 @openchatlab/core 重导出
  */
 
-// ==================== Provider 定义 ====================
+import type {
+  ProviderDefinition as _ProviderDefinition,
+  ModelDefinition as _ModelDefinition,
+  ModelSlot as _ModelSlot,
+} from '@openchatlab/core'
 
-export type ProviderKind = 'official' | 'aggregator' | 'openai-compatible'
+export type {
+  ProviderKind,
+  ProviderDefinition,
+  ModelCapability,
+  ModelStatus,
+  ModelRecommendedFor,
+  ModelDefinition,
+  ModelSlot,
+} from '@openchatlab/core'
 
-export interface ProviderDefinition {
-  id: string
-  name: string
-  kind: ProviderKind
-  website?: string
-  consoleUrl?: string
-  defaultBaseUrl: string
-  authMode: 'api-key'
-  supportsCustomModels: boolean
-  builtin: boolean
-  enabledByDefault: boolean
-  modelIds: string[]
-}
-
-// ==================== Model 定义 ====================
-
-export type ModelCapability = 'chat' | 'reasoning' | 'vision' | 'function_calling' | 'embedding' | 'ranking'
-
-export type ModelStatus = 'stable' | 'preview' | 'deprecated'
-
-export type ModelRecommendedFor = 'chat' | 'embedding' | 'rerank'
-
-export interface ModelDefinition {
-  id: string
-  providerId: string
-  name: string
-  description?: string
-  contextWindow?: number
-  capabilities: ModelCapability[]
-  recommendedFor: ModelRecommendedFor[]
-  status: ModelStatus
-  builtin: boolean
-  editable: boolean
-}
-
-// ==================== 连接配置 ====================
+// Electron 专用扩展类型（不在 core 中）
 
 export interface LLMConnectionConfig {
   id: string
@@ -62,8 +38,6 @@ export interface LLMConnectionConfigCompat extends LLMConnectionConfig {
   customModels?: Array<{ id: string; name: string }>
 }
 
-// ==================== 用途选择（预留） ====================
-
 export type ModelUsage = 'chat' | 'embedding'
 
 export interface ModelSelectionState {
@@ -73,24 +47,17 @@ export interface ModelSelectionState {
   modelId: string
 }
 
-// ==================== 存储结构 ====================
-
 export interface ProviderRegistryStore {
-  providers: ProviderDefinition[]
+  providers: _ProviderDefinition[]
 }
 
 export interface ModelCatalogStore {
-  models: ModelDefinition[]
-}
-
-export interface ModelSlot {
-  configId: string
-  modelId: string
+  models: _ModelDefinition[]
 }
 
 export interface LLMConnectionStore {
   configs: LLMConnectionConfigCompat[]
-  defaultAssistant: ModelSlot | null
-  fastModel: ModelSlot | null
+  defaultAssistant: _ModelSlot | null
+  fastModel: _ModelSlot | null
   schemaVersion: number
 }

@@ -16,7 +16,7 @@ import type {
 } from './types'
 import type { TimeFilter } from '@/types/base'
 
-const NOT_AVAILABLE = 'AI features are not available in web mode'
+const NOT_AVAILABLE = 'AI 对话功能暂不支持 Web 模式，请使用桌面客户端'
 
 /**
  * Web 模式下的 AIAdapter 降级实现

@@ -116,6 +116,26 @@ export type {
   DictInfo,
 } from './nlp'
 
+// AI（内置工具目录、LLM 模型系统等静态数据）
+export type { ToolCategory, BuiltinToolCatalogEntry } from './ai'
+export { BUILTIN_TOOL_CATALOG } from './ai'
+export type {
+  ProviderKind,
+  ProviderDefinition,
+  ModelCapability,
+  ModelStatus,
+  ModelRecommendedFor,
+  ModelDefinition,
+  ModelSlot,
+} from './ai'
+export {
+  BUILTIN_PROVIDERS,
+  getBuiltinProviderById,
+  BUILTIN_MODELS,
+  getBuiltinModelsByProvider,
+  getBuiltinModelById,
+} from './ai'
+
 // Schema 与迁移
 export {
   CURRENT_SCHEMA_VERSION,

@@ -100,6 +100,7 @@ async function initWebServeAdapters(): Promise<void> {
 
   await installChartPluginShims()
   await installNlpApiShim()
+  await installAiApiShims()
 }
 
 /**
@@ -137,6 +138,73 @@ async function installNlpApiShim(): Promise<void> {
     isDictDownloaded: (dictId: string) => get(`/nlp/dicts/${dictId}/status`),
     downloadDict: (dictId: string) => post(`/nlp/dicts/${dictId}/download`),
     deleteDict: (dictId: string) => del(`/nlp/dicts/${dictId}`),
+  }
+}
+
+const WEB_STUB = { success: false as const, error: 'Not available in web mode' }
+
+async function installAiApiShims(): Promise<void> {
+  const { get } = await import('./utils/http')
+
+  ;(window as any).assistantApi = {
+    getAll: () => get('/ai/assistants'),
+    getConfig: (id: string) => get(`/ai/assistants/${id}`),
+    getBuiltinToolCatalog: () => get('/ai/tools/catalog'),
+    getBuiltinCatalog: () => Promise.resolve([]),
+    importFromMd: () => Promise.resolve(WEB_STUB),
+    update: () => Promise.resolve(WEB_STUB),
+    reset: () => Promise.resolve(WEB_STUB),
+    importAssistant: () => Promise.resolve(WEB_STUB),
+    reimportAssistant: () => Promise.resolve(WEB_STUB),
+    create: () => Promise.resolve(WEB_STUB),
+    delete: () => Promise.resolve(WEB_STUB),
+  }
+  ;(window as any).skillApi = {
+    getAll: () => get('/ai/skills'),
+    getConfig: (id: string) => get(`/ai/skills/${id}`),
+    getBuiltinCatalog: () => Promise.resolve([]),
+    importFromMd: () => Promise.resolve(WEB_STUB),
+    update: () => Promise.resolve(WEB_STUB),
+    create: () => Promise.resolve(WEB_STUB),
+    delete: () => Promise.resolve(WEB_STUB),
+    importSkill: () => Promise.resolve(WEB_STUB),
+    reimportSkill: () => Promise.resolve(WEB_STUB),
+  }
+
+  let _cachedLlmData: { configs: any[]; defaultAssistant: any; fastModel: any } | null = null
+  async function loadLlmData() {
+    if (!_cachedLlmData) {
+      _cachedLlmData = await get('/ai/llm/configs')
+    }
+    return _cachedLlmData!
+  }
+
+  ;(window as any).llmApi = {
+    hasConfig: () => get('/ai/llm/has-config'),
+    getAllConfigs: async () => (await loadLlmData()).configs,
+    getDefaultAssistantSlot: () => get('/ai/llm/default-assistant-slot'),
+    getFastModelSlot: () => get('/ai/llm/fast-model-slot'),
+    getProviders: () => get('/ai/llm/providers'),
+    getProviderRegistry: () => get('/ai/llm/provider-registry'),
+    getModelCatalog: () => get('/ai/llm/model-catalog'),
+    setDefaultAssistantModel: () => Promise.resolve(WEB_STUB),
+    setFastModel: () => Promise.resolve(WEB_STUB),
+    deleteConfig: () => Promise.resolve(WEB_STUB),
+    addConfig: () => Promise.resolve(WEB_STUB),
+    updateConfig: () => Promise.resolve(WEB_STUB),
+    validateApiKey: () => Promise.resolve(WEB_STUB),
+    fetchRemoteModels: () => Promise.resolve({ success: false, error: 'Not available in web mode', models: [] }),
+    chatStream: () => Promise.resolve({ success: false, error: 'Not available in web mode' }),
+    addCustomModel: () => Promise.resolve(WEB_STUB),
+    updateCustomModel: () => Promise.resolve(WEB_STUB),
+    deleteCustomModel: () => Promise.resolve(WEB_STUB),
+  }
+  ;(window as any).agentApi = {
+    runStream: () => ({
+      requestId: '',
+      promise: Promise.resolve({ success: false, error: 'Not available in web mode' }),
+    }),
+    abort: () => Promise.resolve(),
   }
 }
 
