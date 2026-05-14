@@ -43,6 +43,14 @@ function handler(params: Record<string, unknown>, context: ToolExecutionContext)
   return {
     content: JSON.stringify(data),
     data,
+    rawMessages: result.messages.map((m) => ({
+      id: m.id,
+      senderId: m.senderId,
+      senderName: m.senderName,
+      senderPlatformId: m.senderPlatformId,
+      content: m.content,
+      timestamp: m.timestamp,
+    })),
   }
 }
 

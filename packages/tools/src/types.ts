@@ -36,11 +36,25 @@ export interface ToolExecutionContext {
 }
 
 /**
+ * 可预处理的原始消息（与 @openchatlab/node-runtime PreprocessableMessage 兼容）
+ */
+export interface RawMessage {
+  id?: number
+  senderId?: number
+  senderName: string
+  senderPlatformId?: string
+  content: string | null
+  timestamp: number
+}
+
+/**
  * 工具执行结果
  */
 export interface ToolResult {
   content: string
   data?: unknown
+  /** 消息类工具可透传原始消息数据，供预处理管道消费 */
+  rawMessages?: RawMessage[]
 }
 
 /**
