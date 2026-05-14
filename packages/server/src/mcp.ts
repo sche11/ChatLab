@@ -19,8 +19,8 @@ let dbManager: DatabaseManager
 
 function initMcpRuntime() {
   const config = loadConfig()
-  const dataDir = config.data.dir || undefined
-  const pathProvider = new NodePathProvider(dataDir)
+  const userDataDir = config.data.user_data_dir || undefined
+  const pathProvider = new NodePathProvider(userDataDir)
   pathProvider.ensureAllDirs()
   dbManager = new DatabaseManager(pathProvider)
   return { config, dbManager }

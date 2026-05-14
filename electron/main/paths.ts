@@ -1,16 +1,31 @@
 /**
  * 统一路径管理模块
- * 所有应用数据存储在 app.getPath('userData') 目录下
  *
- * 各平台路径：
- * - Windows: %APPDATA%/ChatLab (例如 C:\Users\xxx\AppData\Roaming\ChatLab)
- * - macOS: ~/Library/Application Support/ChatLab
- * - Linux: ~/.config/ChatLab
+ * 目录分为两类：
+ * 1. 系统数据（~/.chatlab/）— 固定位置，不可更改
+ *    配置、日志、缓存、AI 数据、设置偏好等
+ * 2. 用户核心数据（userDataDir）— 可通过 config.toml 配置
+ *    聊天记录数据库、向量库（未来）
+ *
+ * userDataDir 解析优先级：
+ *   CHATLAB_DATA_DIR 环境变量 > config.toml [data] user_data_dir > 平台默认
+ *
+ * 平台默认 userDataDir：
+ * - macOS: ~/Documents/ChatLab/
+ * - Windows: %USERPROFILE%\Documents\ChatLab\
+ * - Linux: ~/ChatLab/
+ *
+ * Electron 旧版数据目录（迁移用）：
+ * - Windows: %APPDATA%/ChatLab/data
+ * - macOS: ~/Library/Application Support/ChatLab/data
+ * - Linux: ~/.config/ChatLab/data
  */
 
 import { app } from 'electron'
 import * as fs from 'fs'
+import * as os from 'os'
 import * as path from 'path'
+import { loadConfig, writeConfigField } from '@openchatlab/config'
 import {
   copyDirMerge,
   copyDirRecursive,
@@ -24,10 +39,11 @@ import {
 } from './utils/pathUtils'
 
 // 缓存路径，避免重复计算
-let _appDataDir: string | null = null
+let _systemDataDir: string | null = null
+let _userDataDir: string | null = null
 let _legacyDataDir: string | null = null
 
-// 存储配置文件名（放在 userData 根目录，避免受自定义数据目录影响）
+// 旧版存储配置文件名（迁移兼容用）
 const STORAGE_CONFIG_FILE = 'storage.json'
 
 // ChatLab 数据目录标记文件（用于更严格的目录识别）
@@ -35,33 +51,58 @@ const CHATLAB_MARKER_FILE = '.chatlab'
 // ChatLab 数据目录关键子目录（用于识别已有数据）
 const CHATLAB_REQUIRED_DIRS = ['databases', 'settings']
 
+// ==================== 新路径体系 ====================
+
 /**
- * 获取应用数据根目录
- * 使用 userData/data 子目录，与 Electron 缓存隔离
+ * 获取系统数据根目录（固定 ~/.chatlab/）
  */
-export function getAppDataDir(): string {
-  if (_appDataDir) return _appDataDir
-
-  // 优先读取用户自定义数据目录
-  const customDir = getCustomDataDir()
-  if (customDir) {
-    _appDataDir = customDir
-    return _appDataDir
-  }
-
-  // 回退到默认路径
-  _appDataDir = getDefaultAppDataDir()
-  return _appDataDir
+export function getSystemDataDir(): string {
+  if (_systemDataDir) return _systemDataDir
+  _systemDataDir = path.join(os.homedir(), '.chatlab')
+  return _systemDataDir
 }
 
 /**
- * 获取默认的数据根目录（userData/data）
+ * 获取用户数据根目录（可配置）
+ *
+ * 解析优先级：
+ * 1. CHATLAB_DATA_DIR 环境变量
+ * 2. ~/.chatlab/config.toml [data] user_data_dir
+ * 3. 平台默认路径（首次使用时写入 config.toml）
  */
-function getDefaultAppDataDir(): string {
+export function getUserDataDir(): string {
+  if (_userDataDir) return _userDataDir
+
+  const envDir = process.env.CHATLAB_DATA_DIR
+  if (envDir) {
+    _userDataDir = envDir
+    return _userDataDir
+  }
+
+  const config = loadConfig()
+  if (config.data.user_data_dir) {
+    _userDataDir = config.data.user_data_dir
+    return _userDataDir
+  }
+
+  _userDataDir = getDefaultUserDataDir()
+  writeConfigField('data', 'user_data_dir', _userDataDir)
+  return _userDataDir
+}
+
+function getDefaultUserDataDir(): string {
+  return path.join(os.homedir(), '.chatlab', 'data')
+}
+
+// ==================== 旧版路径（迁移兼容） ====================
+
+/**
+ * 获取 Electron 旧版数据根目录（userData/data）
+ * 仅供迁移检测使用，新代码请使用 getSystemDataDir/getUserDataDir
+ */
+export function getElectronLegacyDataDir(): string {
   try {
-    const userDataPath = app.getPath('userData')
-    // 使用子目录存放应用数据，避免与 Electron 缓存混淆
-    return path.join(userDataPath, 'data')
+    return path.join(app.getPath('userData'), 'data')
   } catch (error) {
     console.error('[Paths] Error getting userData path:', error)
     return path.join(process.cwd(), 'userData', 'data')
@@ -69,7 +110,7 @@ function getDefaultAppDataDir(): string {
 }
 
 /**
- * 获取存储配置文件路径（userData 根目录）
+ * 旧版存储配置文件路径（userData 根目录）
  */
 function getStorageConfigPath(): string {
   try {
@@ -80,18 +121,11 @@ function getStorageConfigPath(): string {
   }
 }
 
-/**
- * 存储配置接口
- */
 interface StorageConfig {
   dataDir?: string
-  // 待删除的旧目录（下次启动时清理）
   pendingDeleteDir?: string
 }
 
-/**
- * 读取存储配置
- */
 function readStorageConfig(): StorageConfig {
   const configPath = getStorageConfigPath()
   if (!fs.existsSync(configPath)) return {}
@@ -107,9 +141,6 @@ function readStorageConfig(): StorageConfig {
   return {}
 }
 
-/**
- * 保存存储配置
- */
 function writeStorageConfig(config: StorageConfig): void {
   const configPath = getStorageConfigPath()
   try {
@@ -119,25 +150,17 @@ function writeStorageConfig(config: StorageConfig): void {
   }
 }
 
-/**
- * 获取用户自定义数据目录
- */
+/** @deprecated 使用 readStorageConfig 进行迁移检测后废弃 */
 export function getCustomDataDir(): string | null {
   const config = readStorageConfig()
   const dataDir = config.dataDir?.trim()
   if (!dataDir) return null
-
-  // 只接受绝对路径
-  if (!path.isAbsolute(dataDir)) {
-    console.warn('[Paths] Invalid custom data dir (not absolute):', dataDir)
-    return null
-  }
-
+  if (!path.isAbsolute(dataDir)) return null
   return dataDir
 }
 
 /**
- * 设置自定义数据目录
+ * 设置用户数据目录
  * @param dataDir 目标目录（为空则恢复默认）
  * @param migrate 是否迁移现有数据（合并复制，不会覆盖目标文件）
  */
@@ -146,21 +169,18 @@ export function setCustomDataDir(
   migrate: boolean = true
 ): { success: boolean; error?: string; from?: string; to?: string } {
   const normalized = typeof dataDir === 'string' ? dataDir.trim() : ''
-  const oldDir = getAppDataDir()
+  const oldDir = getUserDataDir()
 
   try {
     if (!normalized) {
-      // 恢复默认路径
-      const newDir = getDefaultAppDataDir()
+      const newDir = getDefaultUserDataDir()
 
-      // 防止目标目录是当前目录的子目录，避免递归复制
       if (migrate && oldDir !== newDir && isSubPath(oldDir, newDir)) {
         return { success: false, error: '目标目录不能是当前数据目录的子目录' }
       }
 
-      // 先清除自定义配置，切回默认目录
-      writeStorageConfig({})
-      _appDataDir = newDir
+      writeConfigField('data', 'user_data_dir', newDir)
+      _userDataDir = newDir
 
       let canDeleteOldDir = false
       if (migrate && oldDir !== newDir) {
@@ -170,8 +190,6 @@ export function setCustomDataDir(
         )
         if (migrateResult.errors.length > 0) {
           console.warn('[Paths] Errors during migration:', migrateResult.errors)
-          console.warn('[Paths] Migration failed, old data directory will not be deleted')
-          // 迁移失败日志写入 app.log
           writeMigrationLog(
             getLogsDir(),
             `切换为默认目录迁移失败: 从 ${oldDir} 到 ${newDir}，复制 ${migrateResult.copied} 项，跳过 ${migrateResult.skipped} 项，错误 ${migrateResult.errors.length} 项`,
@@ -179,7 +197,6 @@ export function setCustomDataDir(
           )
         } else {
           canDeleteOldDir = true
-          // 迁移成功日志写入 app.log
           writeMigrationLog(
             getLogsDir(),
             `切换为默认目录迁移成功: 从 ${oldDir} 到 ${newDir}，复制 ${migrateResult.copied} 项，跳过 ${migrateResult.skipped} 项`,
@@ -188,7 +205,6 @@ export function setCustomDataDir(
         }
       }
 
-      // 迁移成功才标记删除旧目录，避免数据丢失
       if (canDeleteOldDir) {
         writeStorageConfig({ pendingDeleteDir: oldDir })
       }
@@ -200,17 +216,14 @@ export function setCustomDataDir(
       return { success: false, error: '数据目录必须是绝对路径' }
     }
 
-    // 防止目标目录是当前目录的子目录，避免递归复制
     if (migrate && oldDir !== normalized && isSubPath(oldDir, normalized)) {
       return { success: false, error: '目标目录不能是当前数据目录的子目录' }
     }
 
-    // 安全检查：不能使用系统关键目录
     if (!isPathSafe(normalized)) {
       return { success: false, error: '不能使用系统关键目录作为数据目录' }
     }
 
-    // 安全检查：不能放在应用安装目录下（更新时会被清空）
     try {
       const exePath = app.getPath('exe')
       if (isInsideAppInstallDir(normalized, exePath)) {
@@ -220,15 +233,12 @@ export function setCustomDataDir(
       // 获取 exe 路径失败时跳过此检查
     }
 
-    // 安全检查：目标目录应为空或已有 ChatLab 数据
     if (!isDirectorySafeToUse(normalized, CHATLAB_MARKER_FILE, CHATLAB_REQUIRED_DIRS)) {
       return { success: false, error: '目标目录不为空且不包含 ChatLab 数据，请选择空目录或已有数据目录' }
     }
 
-    // 确保目录存在
     ensureDir(normalized)
-
-    _appDataDir = normalized
+    _userDataDir = normalized
 
     let canDeleteOldDir = false
     if (migrate && oldDir !== normalized) {
@@ -238,8 +248,6 @@ export function setCustomDataDir(
       )
       if (migrateResult.errors.length > 0) {
         console.warn('[Paths] Errors during migration:', migrateResult.errors)
-        console.warn('[Paths] Migration failed, old data directory will not be deleted')
-        // 迁移失败日志写入 app.log
         writeMigrationLog(
           getLogsDir(),
           `切换目录迁移失败: 从 ${oldDir} 到 ${normalized}，复制 ${migrateResult.copied} 项，跳过 ${migrateResult.skipped} 项，错误 ${migrateResult.errors.length} 项`,
@@ -247,7 +255,6 @@ export function setCustomDataDir(
         )
       } else {
         canDeleteOldDir = true
-        // 迁移成功日志写入 app.log
         writeMigrationLog(
           getLogsDir(),
           `切换目录迁移成功: 从 ${oldDir} 到 ${normalized}，复制 ${migrateResult.copied} 项，跳过 ${migrateResult.skipped} 项`,
@@ -256,12 +263,11 @@ export function setCustomDataDir(
       }
     }
 
-    // 迁移成功才标记删除旧目录，避免数据丢失
-    const config: StorageConfig = { dataDir: normalized }
+    writeConfigField('data', 'user_data_dir', normalized)
+
     if (canDeleteOldDir) {
-      config.pendingDeleteDir = oldDir
+      writeStorageConfig({ pendingDeleteDir: oldDir })
     }
-    writeStorageConfig(config)
 
     return { success: true, from: oldDir, to: normalized }
   } catch (error) {
@@ -280,47 +286,36 @@ export function cleanupPendingDeleteDir(): void {
 
     if (!pendingDir) return
 
-    // 获取当前数据目录
-    const currentDir = getAppDataDir()
+    const currentDir = getUserDataDir()
 
-    // 安全检查：不能删除当前正在使用的目录
     if (pendingDir === currentDir) {
       console.log('[Paths] Skipping cleanup: pending dir is same as current dir')
-      // 清除待删除标记
       writeStorageConfig({ dataDir: config.dataDir })
       return
     }
 
-    // 安全检查：不能删除系统关键目录
     if (!isPathSafe(pendingDir)) {
       console.log('[Paths] Skipping cleanup: pending dir is a system directory:', pendingDir)
-      // 清除待删除标记
       writeStorageConfig({ dataDir: config.dataDir })
       return
     }
 
-    // 安全检查：确保待删除目录确实是 ChatLab 数据目录（标记文件 + 关键子目录）
     if (fs.existsSync(pendingDir) && !isExistingChatLabDir(pendingDir, CHATLAB_MARKER_FILE, CHATLAB_REQUIRED_DIRS)) {
       console.log('[Paths] Skipping cleanup: pending dir is not a ChatLab data dir:', pendingDir)
-      // 清除待删除标记
       writeStorageConfig({ dataDir: config.dataDir })
       return
     }
 
-    // 检查目录是否存在
     if (!fs.existsSync(pendingDir)) {
       console.log('[Paths] Pending dir does not exist, skipping cleanup:', pendingDir)
-      // 清除待删除标记
       writeStorageConfig({ dataDir: config.dataDir })
       return
     }
 
-    // 删除旧目录
     console.log('[Paths] Cleaning up old data directory:', pendingDir)
     fs.rmSync(pendingDir, { recursive: true, force: true })
     console.log('[Paths] Old data directory deleted:', pendingDir)
 
-    // 清除待删除标记
     writeStorageConfig({ dataDir: config.dataDir })
   } catch (error) {
     console.error('[Paths] Failed to clean up old directory:', error)
@@ -358,46 +353,28 @@ export function getDownloadsDir(): string {
   }
 }
 
-/**
- * 获取数据库目录
- */
 export function getDatabaseDir(): string {
-  return path.join(getAppDataDir(), 'databases')
+  return path.join(getUserDataDir(), 'databases')
 }
 
-/**
- * 获取 AI 数据目录（对话历史、LLM 配置）
- */
 export function getAiDataDir(): string {
-  return path.join(getAppDataDir(), 'ai')
+  return path.join(getSystemDataDir(), 'ai')
 }
 
-/**
- * 获取设置目录
- */
 export function getSettingsDir(): string {
-  return path.join(getAppDataDir(), 'settings')
+  return path.join(getSystemDataDir(), 'settings')
 }
 
-/**
- * 获取缓存目录（存放可再生的派生数据，如统计缓存）
- */
 export function getCacheDir(): string {
-  return path.join(getAppDataDir(), 'cache')
+  return path.join(getSystemDataDir(), 'cache')
 }
 
-/**
- * 获取临时文件目录
- */
 export function getTempDir(): string {
-  return path.join(getAppDataDir(), 'temp')
+  return path.join(getSystemDataDir(), 'temp')
 }
 
-/**
- * 获取日志目录
- */
 export function getLogsDir(): string {
-  return path.join(getAppDataDir(), 'logs')
+  return path.join(getSystemDataDir(), 'logs')
 }
 
 /**
@@ -410,17 +387,18 @@ export function ensureDir(dirPath: string): void {
 }
 
 /**
- * 确保所有应用目录存在
+ * 确保所有应用目录存在（系统数据 + 用户数据）
  */
 export function ensureAppDirs(): void {
+  ensureDir(getSystemDataDir())
+  ensureDir(getUserDataDir())
   ensureDir(getDatabaseDir())
   ensureDir(getAiDataDir())
   ensureDir(getSettingsDir())
   ensureDir(getCacheDir())
   ensureDir(getTempDir())
   ensureDir(getLogsDir())
-  // 写入数据目录标记文件
-  ensureMarkerFile(getAppDataDir(), CHATLAB_MARKER_FILE)
+  ensureMarkerFile(getUserDataDir(), CHATLAB_MARKER_FILE)
 }
 
 // ==================== 数据迁移 ====================
@@ -514,7 +492,7 @@ function migrateDirectory(
  */
 export function migrateFromLegacyDir(): { success: boolean; migratedDirs: string[]; error?: string } {
   const legacyDir = getLegacyDataDir()
-  const newDir = getAppDataDir()
+  const newDir = getUserDataDir()
 
   try {
     if (!fs.existsSync(legacyDir)) {
@@ -586,5 +564,159 @@ export function removeLegacyDir(): boolean {
   } catch (error) {
     console.error('[Paths] Failed to remove legacy directory:', error)
     return false
+  }
+}
+
+// ==================== Electron 旧目录结构 → 新目录结构迁移 ====================
+
+const SYSTEM_SUBDIRS = ['ai', 'settings', 'cache', 'logs', 'temp', 'nlp']
+
+/**
+ * 检测是否需要从 Electron 旧目录结构迁移到新的双根目录结构
+ *
+ * 判断条件：
+ * - 旧 Electron 数据路径存在数据库文件
+ * - 且当前 user_data_dir 没有指向旧 Electron 路径（即数据库还未被纳入）
+ *
+ * 注意：不能仅靠 user_data_dir 是否存在来判断，因为 CLI 可能先于
+ * Electron 启动并写入了默认值 ~/.chatlab/data，导致迁移被跳过。
+ */
+export function needsUnifiedDirMigration(): boolean {
+  const oldDataDir = resolveOldElectronDataDir()
+  const oldDbDir = path.join(oldDataDir, 'databases')
+  if (!fs.existsSync(oldDbDir)) return false
+
+  const hasDb = fs.readdirSync(oldDbDir).some((f) => f.endsWith('.db'))
+  if (!hasDb) return false
+
+  const config = loadConfig()
+  const currentUserDataDir = config.data.user_data_dir || getDefaultUserDataDir()
+  if (path.resolve(currentUserDataDir) === path.resolve(oldDataDir)) return false
+
+  return true
+}
+
+/**
+ * 解析 Electron 旧数据目录（考虑 storage.json 自定义路径）
+ */
+function resolveOldElectronDataDir(): string {
+  const storageConfig = readStorageConfig()
+  if (storageConfig.dataDir && path.isAbsolute(storageConfig.dataDir)) {
+    return storageConfig.dataDir
+  }
+  return getElectronLegacyDataDir()
+}
+
+/**
+ * 执行从 Electron 旧目录结构到新双根目录结构的迁移
+ *
+ * 迁移步骤：
+ * 1. 创建 ~/.chatlab/ 目录
+ * 2. 如果当前 user_data_dir 下有数据库，合并到旧 Electron 路径
+ * 3. 将旧数据路径写入 config.toml [data] user_data_dir
+ * 4. 复制系统数据到 ~/.chatlab/（合并，不覆盖已有）
+ * 5. 验证复制成功
+ * 6. 删除旧路径下的系统数据
+ * 7. 留 MOVED.txt 说明文件
+ */
+export function migrateToUnifiedDirs(): { success: boolean; error?: string } {
+  const oldDataDir = resolveOldElectronDataDir()
+  const systemDir = getSystemDataDir()
+
+  console.log(`[Migration] Starting unified dir migration: ${oldDataDir} → ${systemDir}`)
+
+  try {
+    // Step 1: 创建系统目录
+    ensureDir(systemDir)
+
+    // Step 2: 如果当前 user_data_dir 指向了别处（如 CLI 写入的默认路径），
+    // 且那里有数据库，先合并到旧 Electron 路径
+    const config = loadConfig()
+    const prevUserDataDir = config.data.user_data_dir
+    if (prevUserDataDir && path.resolve(prevUserDataDir) !== path.resolve(oldDataDir)) {
+      const prevDbDir = path.join(prevUserDataDir, 'databases')
+      const oldDbDir = path.join(oldDataDir, 'databases')
+      if (fs.existsSync(prevDbDir)) {
+        const dbFiles = fs.readdirSync(prevDbDir).filter((f) => f.endsWith('.db'))
+        if (dbFiles.length > 0) {
+          ensureDir(oldDbDir)
+          const result = copyDirMerge(prevDbDir, oldDbDir, ensureDir)
+          console.log(
+            `[Migration] Merged ${result.copied} databases from ${prevDbDir} to ${oldDbDir} (skipped ${result.skipped})`
+          )
+        }
+      }
+    }
+
+    // Step 3: 写入 config.toml（数据库保留在旧 Electron 路径）
+    writeConfigField('data', 'user_data_dir', oldDataDir)
+    _userDataDir = oldDataDir
+
+    // 如果 storage.json 有自定义 dataDir，也记录日志
+    const storageConfig = readStorageConfig()
+    if (storageConfig.dataDir) {
+      console.log(`[Migration] Migrated storage.json custom path: ${storageConfig.dataDir}`)
+    }
+
+    // Step 4: 复制系统数据（合并，不覆盖 ~/.chatlab/ 下已有的文件）
+    const movedDirs: string[] = []
+    const failedDirs: string[] = []
+
+    for (const subDir of SYSTEM_SUBDIRS) {
+      const srcDir = path.join(oldDataDir, subDir)
+      const destDir = path.join(systemDir, subDir)
+
+      if (!fs.existsSync(srcDir)) continue
+
+      try {
+        ensureDir(destDir)
+        const mergeResult = copyDirMerge(srcDir, destDir, ensureDir)
+
+        if (mergeResult.copied > 0 || mergeResult.skipped > 0) {
+          movedDirs.push(subDir)
+          console.log(`[Migration] ${subDir}: copied ${mergeResult.copied}, skipped ${mergeResult.skipped}`)
+        }
+      } catch (err) {
+        console.error(`[Migration] Failed to copy ${subDir}:`, err)
+        failedDirs.push(subDir)
+      }
+    }
+
+    // Step 5: 删除旧路径下的系统数据（仅成功复制的目录）
+    for (const subDir of movedDirs) {
+      const srcDir = path.join(oldDataDir, subDir)
+      try {
+        fs.rmSync(srcDir, { recursive: true, force: true })
+      } catch (err) {
+        console.warn(`[Migration] Failed to remove old ${subDir}:`, err)
+      }
+    }
+
+    // Step 6: 留说明文件
+    const movedTxt = [
+      `ChatLab Data Migration - ${new Date().toISOString()}`,
+      '',
+      'System data has been moved to: ' + systemDir,
+      'User data (databases) remains in this directory.',
+      '',
+      `Moved directories: ${movedDirs.join(', ') || 'none'}`,
+      `Failed directories: ${failedDirs.join(', ') || 'none'}`,
+    ].join('\n')
+    fs.writeFileSync(path.join(oldDataDir, 'MOVED.txt'), movedTxt, 'utf-8')
+
+    const summary = `Unified dir migration: ${movedDirs.length} dirs moved, ${failedDirs.length} failed`
+    writeMigrationLog(getLogsDir(), summary, ensureDir)
+    console.log(`[Migration] ${summary}`)
+
+    return { success: failedDirs.length === 0 }
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    console.error('[Migration] Unified dir migration failed:', errorMsg)
+    try {
+      writeMigrationLog(getLogsDir(), `Unified dir migration failed: ${errorMsg}`, ensureDir)
+    } catch {
+      // 日志写入失败时忽略
+    }
+    return { success: false, error: errorMsg }
   }
 }

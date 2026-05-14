@@ -73,7 +73,7 @@ function loadConfigFile(): Record<string, unknown> {
  * 从 CHATLAB_* 环境变量加载配置
  *
  * 映射规则：
- * - CHATLAB_DATA_DIR       -> data.dir
+ * - CHATLAB_DATA_DIR       -> data.user_data_dir
  * - CHATLAB_API_PORT       -> api.port
  * - CHATLAB_API_HOST       -> api.host
  * - CHATLAB_LLM_PROVIDER   -> llm.provider
@@ -86,7 +86,7 @@ function loadEnvConfig(): Record<string, unknown> {
   const result: Record<string, Record<string, unknown>> = {}
 
   const envMap: Array<{ env: string; section: string; key: string; transform?: (v: string) => unknown }> = [
-    { env: 'CHATLAB_DATA_DIR', section: 'data', key: 'dir' },
+    { env: 'CHATLAB_DATA_DIR', section: 'data', key: 'user_data_dir' },
     { env: 'CHATLAB_API_PORT', section: 'api', key: 'port', transform: (v) => parseInt(v, 10) },
     { env: 'CHATLAB_API_HOST', section: 'api', key: 'host' },
     { env: 'CHATLAB_LLM_PROVIDER', section: 'llm', key: 'provider' },
@@ -105,6 +105,49 @@ function loadEnvConfig(): Record<string, unknown> {
   }
 
   return result
+}
+
+/**
+ * 写入 config.toml 的某个字段
+ *
+ * 如果文件不存在则创建，如果已存在则保留其他内容，只更新指定字段。
+ * 采用简单的 TOML 序列化：仅支持一级 section + 字符串/数字值。
+ */
+export function writeConfigField(section: string, key: string, value: string | number): void {
+  if (!fs.existsSync(CONFIG_DIR)) {
+    fs.mkdirSync(CONFIG_DIR, { recursive: true })
+  }
+
+  let existing: Record<string, Record<string, unknown>> = {}
+  if (fs.existsSync(CONFIG_TOML)) {
+    try {
+      const content = fs.readFileSync(CONFIG_TOML, 'utf-8')
+      existing = parseToml(content) as Record<string, Record<string, unknown>>
+    } catch {
+      // 解析失败时从空开始，旧文件会被覆盖
+    }
+  }
+
+  if (!existing[section] || typeof existing[section] !== 'object') {
+    existing[section] = {}
+  }
+  existing[section][key] = value
+
+  const lines: string[] = []
+  for (const [sec, entries] of Object.entries(existing)) {
+    if (typeof entries !== 'object' || entries === null) continue
+    lines.push(`[${sec}]`)
+    for (const [k, v] of Object.entries(entries as Record<string, unknown>)) {
+      if (typeof v === 'string') {
+        lines.push(`${k} = ${JSON.stringify(v)}`)
+      } else if (typeof v === 'number' || typeof v === 'boolean') {
+        lines.push(`${k} = ${v}`)
+      }
+    }
+    lines.push('')
+  }
+
+  fs.writeFileSync(CONFIG_TOML, lines.join('\n'), 'utf-8')
 }
 
 /**

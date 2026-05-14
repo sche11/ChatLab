@@ -5,7 +5,8 @@ import * as fsSync from 'fs'
 import * as path from 'path'
 import type { IpcContext } from './types'
 import {
-  getAppDataDir,
+  getUserDataDir,
+  getSystemDataDir,
   getDatabaseDir,
   getCacheDir,
   getAiDataDir,
@@ -74,7 +75,7 @@ export function registerCacheHandlers(_context: IpcContext): void {
    * 获取所有缓存目录信息
    */
   ipcMain.handle('cache:getInfo', async () => {
-    const appDataDir = getAppDataDir()
+    const appDataDir = getUserDataDir()
 
     // 定义缓存目录（应用数据目录下的子目录）
     const cacheDirectories = [
@@ -141,7 +142,7 @@ export function registerCacheHandlers(_context: IpcContext): void {
    */
   ipcMain.handle('cache:getDataDir', async () => {
     return {
-      path: getAppDataDir(),
+      path: getUserDataDir(),
       isCustom: Boolean(getCustomDataDir()),
     }
   })
@@ -153,7 +154,7 @@ export function registerCacheHandlers(_context: IpcContext): void {
     try {
       const result = await dialog.showOpenDialog({
         properties: ['openDirectory', 'createDirectory'],
-        defaultPath: getAppDataDir(),
+        defaultPath: getUserDataDir(),
         title: '选择数据目录',
         buttonLabel: '选择',
       })
@@ -294,7 +295,8 @@ export function registerCacheHandlers(_context: IpcContext): void {
    */
   ipcMain.handle('cache:openDir', async (_, cacheId: string) => {
     const dirPaths: Record<string, string> = {
-      base: getAppDataDir(),
+      base: getUserDataDir(),
+      system: getSystemDataDir(),
       databases: getDatabaseDir(),
       cache: getCacheDir(),
       ai: getAiDataDir(),

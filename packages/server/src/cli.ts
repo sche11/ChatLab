@@ -34,7 +34,7 @@ program
 
     if (sessionIds.length === 0) {
       console.log('没有找到任何聊天会话。')
-      console.log(`数据目录: ${dbManager['pathProvider'].getDataDir()}`)
+      console.log(`数据目录: ${dbManager['pathProvider'].getUserDataDir()}`)
       dbManager.closeAll()
       return
     }
@@ -374,8 +374,8 @@ function resolveNativeBinding(): string | undefined {
 
 function initRuntime() {
   const config = loadConfig()
-  const dataDir = config.data.dir || undefined
-  const pathProvider = new NodePathProvider(dataDir)
+  const userDataDir = config.data.user_data_dir || undefined
+  const pathProvider = new NodePathProvider(userDataDir)
   pathProvider.ensureAllDirs()
   const nativeBinding = resolveNativeBinding()
   const dbManager = new DatabaseManager(pathProvider, { nativeBinding })

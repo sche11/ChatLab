@@ -3,52 +3,64 @@
  *
  * 为 CLI / npm 服务版提供路径管理，不依赖 Electron。
  *
- * 数据目录来源（优先级从高到低）：
- * 1. 构造函数传入的 dataDir 参数
- * 2. CHATLAB_DATA_DIR 环境变量
- * 3. 默认路径 ~/.chatlab/data/
+ * 目录分为两类：
+ * - 系统数据：固定在 ~/.chatlab/，存放配置、日志、缓存、AI 数据等
+ * - 用户数据：可配置位置，存放聊天记录数据库等核心资产
  *
- * 子目录结构与 Electron 版保持一致。
+ * 用户数据目录（userDataDir）解析优先级：
+ * 1. 构造函数传入的 userDataDir 参数
+ * 2. CHATLAB_DATA_DIR 环境变量
+ * 3. ~/.chatlab/config.toml → [data] user_data_dir
+ * 4. 平台默认路径
  */
 
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import type { PathProvider } from '@openchatlab/core'
+import { writeConfigField, loadConfig } from '@openchatlab/config'
+
+const SYSTEM_DIR = path.join(os.homedir(), '.chatlab')
 
 export class NodePathProvider implements PathProvider {
-  private dataDir: string
+  private systemDir: string
+  private userDataDir: string
 
-  constructor(dataDir?: string) {
-    this.dataDir = dataDir || resolveDataDir()
+  constructor(userDataDir?: string) {
+    this.systemDir = SYSTEM_DIR
+    this.userDataDir = userDataDir || resolveUserDataDir()
   }
 
-  getDataDir(): string {
-    return this.dataDir
+  getSystemDir(): string {
+    return this.systemDir
+  }
+
+  getUserDataDir(): string {
+    return this.userDataDir
   }
 
   getDatabaseDir(): string {
-    return path.join(this.dataDir, 'databases')
+    return path.join(this.userDataDir, 'databases')
   }
 
   getAiDataDir(): string {
-    return path.join(this.dataDir, 'ai')
+    return path.join(this.systemDir, 'ai')
   }
 
   getSettingsDir(): string {
-    return path.join(this.dataDir, 'settings')
+    return path.join(this.systemDir, 'settings')
   }
 
   getCacheDir(): string {
-    return path.join(this.dataDir, 'cache')
+    return path.join(this.systemDir, 'cache')
   }
 
   getTempDir(): string {
-    return path.join(this.dataDir, 'temp')
+    return path.join(this.systemDir, 'temp')
   }
 
   getLogsDir(): string {
-    return path.join(this.dataDir, 'logs')
+    return path.join(this.systemDir, 'logs')
   }
 
   getDownloadsDir(): string {
@@ -56,11 +68,12 @@ export class NodePathProvider implements PathProvider {
   }
 
   /**
-   * 确保所有子目录存在
+   * 确保系统目录和用户数据目录都存在
    */
   ensureAllDirs(): void {
     const dirs = [
-      this.dataDir,
+      this.systemDir,
+      this.userDataDir,
       this.getDatabaseDir(),
       this.getAiDataDir(),
       this.getSettingsDir(),
@@ -76,20 +89,26 @@ export class NodePathProvider implements PathProvider {
   }
 }
 
-/**
- * 解析数据目录路径
- */
-function resolveDataDir(): string {
+function resolveUserDataDir(): string {
   const envDir = process.env.CHATLAB_DATA_DIR
   if (envDir) {
     return expandHome(envDir)
   }
+
+  const config = loadConfig()
+  if (config.data.user_data_dir) {
+    return expandHome(config.data.user_data_dir)
+  }
+
+  const defaultDir = getDefaultUserDataDir()
+  writeConfigField('data', 'user_data_dir', defaultDir)
+  return defaultDir
+}
+
+function getDefaultUserDataDir(): string {
   return path.join(os.homedir(), '.chatlab', 'data')
 }
 
-/**
- * 展开路径中的 ~ 为用户主目录
- */
 function expandHome(filePath: string): string {
   if (filePath.startsWith('~/') || filePath === '~') {
     return path.join(os.homedir(), filePath.slice(1))

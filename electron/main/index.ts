@@ -5,7 +5,14 @@ import { checkUpdate } from './update'
 import mainIpcMain, { cleanup } from './ipcMain'
 import { initAnalytics, trackDailyActive } from './analytics'
 import { initProxy } from './network/proxy'
-import { needsLegacyMigration, migrateFromLegacyDir, ensureAppDirs, cleanupPendingDeleteDir } from './paths'
+import {
+  needsLegacyMigration,
+  migrateFromLegacyDir,
+  ensureAppDirs,
+  cleanupPendingDeleteDir,
+  needsUnifiedDirMigration,
+  migrateToUnifiedDirs,
+} from './paths'
 import { migrateAllDatabases, checkMigrationNeeded } from './database/core'
 import { initLocale } from './i18n'
 
@@ -81,6 +88,9 @@ class MainProcess {
 
       // 执行数据目录迁移（从 Documents/ChatLab 迁移到 userData）
       this.migrateDataIfNeeded()
+
+      // 执行统一目录结构迁移（Electron 旧布局 → 双根目录）
+      this.migrateToUnifiedDirsIfNeeded()
     }
 
     // 确保应用目录存在
@@ -103,7 +113,7 @@ class MainProcess {
     this.mainAppEvents()
   }
 
-  // 从旧目录迁移数据（静默迁移）
+  // 从旧目录迁移数据（Documents/ChatLab → userData/data）
   migrateDataIfNeeded() {
     if (needsLegacyMigration()) {
       console.log('[Main] Legacy data migration needed, starting migration...')
@@ -115,6 +125,21 @@ class MainProcess {
       }
     } else {
       console.log('[Main] No legacy data migration needed')
+    }
+  }
+
+  // 从 Electron 旧目录结构迁移到新的双根目录结构
+  migrateToUnifiedDirsIfNeeded() {
+    if (needsUnifiedDirMigration()) {
+      console.log('[Main] Unified directory migration needed, starting...')
+      const result = migrateToUnifiedDirs()
+      if (result.success) {
+        console.log('[Main] Unified directory migration completed')
+      } else {
+        console.error('[Main] Unified directory migration failed:', result.error)
+      }
+    } else {
+      console.log('[Main] No unified directory migration needed')
     }
   }
 

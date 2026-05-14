@@ -14,7 +14,7 @@ export const llmConfigSchema = z.object({
 })
 
 export const dataConfigSchema = z.object({
-  dir: z.string().default(''),
+  user_data_dir: z.string().default(''),
 })
 
 export const apiConfigSchema = z.object({

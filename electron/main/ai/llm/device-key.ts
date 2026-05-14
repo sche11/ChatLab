@@ -7,7 +7,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { randomBytes } from 'crypto'
-import { getAppDataDir, ensureDir } from '../../paths'
+import { getSystemDataDir, ensureDir } from '../../paths'
 
 const DEVICE_KEY_FILE = '.device-key'
 
@@ -20,7 +20,7 @@ let cachedDeviceKey: string | null = null
 export function getDeviceKey(): string {
   if (cachedDeviceKey) return cachedDeviceKey
 
-  const dataDir = getAppDataDir()
+  const dataDir = getSystemDataDir()
   ensureDir(dataDir)
   const keyPath = path.join(dataDir, DEVICE_KEY_FILE)
 

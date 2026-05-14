@@ -77,8 +77,8 @@ export async function startHttpServer(options?: HttpServerOptions): Promise<{
   const host = options?.host ?? config.api.host
   const token = options?.token ?? ensureToken(config)
 
-  const dataDir = config.data.dir || undefined
-  const pathProvider = new NodePathProvider(dataDir)
+  const userDataDir = config.data.user_data_dir || undefined
+  const pathProvider = new NodePathProvider(userDataDir)
   pathProvider.ensureAllDirs()
   const nativeBinding = resolveNativeBinding()
   dbManager = new DatabaseManager(pathProvider, { nativeBinding })
