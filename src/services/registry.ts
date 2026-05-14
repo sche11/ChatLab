@@ -264,6 +264,7 @@ async function installAiApiShims(): Promise<void> {
             chatType: chatType || 'group',
             locale: locale || 'zh-CN',
             assistantId,
+            compressionConfig: _compressionConfig,
           },
           signal: abortController.signal,
           onEvent: ({ event, data }) => {

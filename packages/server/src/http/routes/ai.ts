@@ -379,9 +379,15 @@ export function registerAiRoutes(
       chatType?: 'group' | 'private'
       locale?: string
       assistantId?: string
+      compressionConfig?: {
+        enabled: boolean
+        tokenThresholdPercent?: number
+        bufferSizePercent?: number
+        maxToolResultPercent?: number
+      }
     }
   }>('/_web/ai/agent/stream', async (request, reply) => {
-    const { userMessage, conversationId, sessionId, chatType, locale, assistantId } = request.body
+    const { userMessage, conversationId, sessionId, chatType, locale, assistantId, compressionConfig } = request.body
 
     const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
     const abortController = new AbortController()
@@ -450,6 +456,15 @@ export function registerAiRoutes(
     })
 
     try {
+      const resolvedCompression = compressionConfig?.enabled
+        ? {
+            enabled: true as const,
+            tokenThresholdPercent: compressionConfig.tokenThresholdPercent ?? 75,
+            bufferSizePercent: compressionConfig.bufferSizePercent ?? 20,
+            maxToolResultPercent: compressionConfig.maxToolResultPercent,
+          }
+        : undefined
+
       await runServerAgent({
         userMessage,
         conversationId,
@@ -457,6 +472,7 @@ export function registerAiRoutes(
         locale,
         assistantSystemPrompt,
         skillMenu,
+        compressionConfig: resolvedCompression,
         tools: agentTools,
         aiDataDir,
         convManager,
