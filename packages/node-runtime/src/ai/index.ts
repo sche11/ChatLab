@@ -19,3 +19,26 @@ export type {
 
 // Tokenizer
 export { countTokens, countMessagesTokens } from './tokenizer'
+
+// Preprocessor
+export type {
+  PreprocessConfig,
+  PreprocessableMessage,
+  DesensitizeRule,
+  TruncationStrategy,
+  PreprocessLogger,
+} from './preprocessor'
+export {
+  preprocessMessages,
+  BUILTIN_DESENSITIZE_RULES,
+  getDefaultRulesForLocale,
+  mergeRulesForLocale,
+  formatMessageCompact,
+  formatTimeRange,
+  formatToolResultAsText,
+  anonymizeMessageNames,
+  truncateFormattedMessages,
+  isChineseLocale,
+  i18nTexts,
+  t,
+} from './preprocessor'

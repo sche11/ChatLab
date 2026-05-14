@@ -35,6 +35,30 @@ export type { AssistantConfig, AssistantSummary, SkillDef, SkillSummary } from '
 export { parseAssistantFile, serializeAssistant, parseSkillFile, extractSkillId } from './ai'
 export { AIConversationManager } from './ai'
 export { countTokens, countMessagesTokens } from './ai'
+
+// Preprocessor
+export type {
+  PreprocessConfig,
+  PreprocessableMessage,
+  DesensitizeRule,
+  TruncationStrategy,
+  PreprocessLogger,
+} from './ai'
+export {
+  preprocessMessages,
+  BUILTIN_DESENSITIZE_RULES,
+  getDefaultRulesForLocale,
+  mergeRulesForLocale,
+  formatMessageCompact,
+  formatTimeRange,
+  formatToolResultAsText,
+  anonymizeMessageNames,
+  truncateFormattedMessages,
+  isChineseLocale,
+  i18nTexts,
+  t,
+} from './ai'
+
 export type {
   AIConversation,
   AIMessage,
