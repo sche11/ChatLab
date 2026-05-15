@@ -3,10 +3,13 @@
  *
  * TOOL_REGISTRY 是全局唯一的工具清单，驱动后端加载和前端目录展示。
  * 新增工具只需在此追加一条 ToolRegistryEntry。
+ *
+ * 部分工具已迁移到 @openchatlab/tools 共享定义，通过 shared-tool-adapter 适配。
  */
 
 import type { ToolRegistryEntry } from '../types'
 
+// Electron-only 工具（保留原生实现）
 import { createTool as createGetChatOverview } from './get-chat-overview'
 import { createTool as createSearchMessages } from './search-messages'
 import { createTool as createDeepSearchMessages } from './deep-search-messages'
@@ -15,8 +18,6 @@ import { createTool as createGetMessageContext } from './get-message-context'
 import { createTool as createSearchSessions } from './search-sessions'
 import { createTool as createGetSessionMessages } from './get-session-messages'
 import { createTool as createGetMembers } from './get-group-members'
-import { createTool as createGetMemberStats } from './get-member-stats'
-import { createTool as createGetTimeStats } from './get-time-stats'
 import { createTool as createGetMemberNameHistory } from './get-member-name-history'
 import { createTool as createGetConversationBetween } from './get-conversation-between'
 import { createTool as createGetSessionSummaries } from './get-session-summaries'
@@ -25,7 +26,21 @@ import { createTool as createKeywordFrequency } from './keyword-frequency'
 
 import { sqlToolEntries } from './sql-analysis'
 
+// 共享工具定义（通过 adapter 适配为 Electron AgentTool）
+import { memberStatsTool, timeStatsTool } from '@openchatlab/tools'
+import { adaptSharedTool } from '../shared-tool-adapter'
+
 export { sqlToolEntries } from './sql-analysis'
+
+const sharedMemberStats = adaptSharedTool(memberStatsTool, {
+  electronName: 'get_member_stats',
+  category: 'analysis',
+})
+
+const sharedTimeStats = adaptSharedTool(timeStatsTool, {
+  electronName: 'get_time_stats',
+  category: 'analysis',
+})
 
 export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   // ==================== Core 工具（始终加载） ====================
@@ -49,8 +64,10 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { name: 'get_members', factory: createGetMembers, category: 'core' },
 
   // ==================== Analysis 工具（按需加载） ====================
-  { name: 'get_member_stats', factory: createGetMemberStats, category: 'analysis' },
-  { name: 'get_time_stats', factory: createGetTimeStats, category: 'analysis' },
+  // 共享工具（via @openchatlab/tools）
+  sharedMemberStats,
+  sharedTimeStats,
+  // Electron-only 工具
   { name: 'get_member_name_history', factory: createGetMemberNameHistory, category: 'analysis' },
   {
     name: 'get_conversation_between',

@@ -1,0 +1,77 @@
+/**
+ * 共享工具适配器
+ *
+ * 将 @openchatlab/tools 的 ToolDefinition 转换为 Electron 的 ToolRegistryEntry。
+ * Electron 端使用 WorkerDataProvider 替代 Server 端的 CoreDataProvider。
+ */
+
+import type { ToolDefinition, ToolExecutionContext } from '@openchatlab/tools'
+import type { AgentTool, AgentToolResult } from '@openchatlab/node-runtime'
+import type { ToolContext, ToolRegistryEntry, ToolCategory } from './types'
+import { WorkerDataProvider } from './worker-data-provider'
+
+interface AdaptOptions {
+  /** Electron 端工具名（覆盖共享定义的名称） */
+  electronName: string
+  category: ToolCategory
+  truncationStrategy?: 'keep_first' | 'keep_last'
+}
+
+function buildExecutionContext(ctx: ToolContext): ToolExecutionContext {
+  return {
+    dataProvider: new WorkerDataProvider(ctx.sessionId),
+    sessionId: ctx.sessionId,
+    locale: ctx.locale,
+    timeFilter: ctx.timeFilter,
+  }
+}
+
+/**
+ * 将单个 ToolDefinition 适配为 Electron ToolRegistryEntry
+ */
+export function adaptSharedTool(tool: ToolDefinition, options: AdaptOptions): ToolRegistryEntry {
+  return {
+    name: options.electronName,
+    category: options.category,
+    truncationStrategy: options.truncationStrategy,
+    factory(context: ToolContext): AgentTool<any> {
+      const schema = {
+        type: 'object' as const,
+        properties: { ...tool.inputSchema.properties },
+        required: tool.inputSchema.required ?? [],
+      }
+
+      return {
+        name: options.electronName,
+        label: options.electronName,
+        description: `ai.tools.${options.electronName}.desc`,
+        parameters: schema as any,
+        async execute(_toolCallId: string, params: Record<string, unknown>): Promise<AgentToolResult<unknown>> {
+          const execCtx = buildExecutionContext(context)
+          try {
+            const result = await tool.handler(params, execCtx)
+
+            if (result.rawMessages && result.rawMessages.length > 0) {
+              const baseData = (typeof result.data === 'object' && result.data !== null ? result.data : {}) as Record<
+                string,
+                unknown
+              >
+              return {
+                content: [{ type: 'text', text: result.content }],
+                details: { ...baseData, rawMessages: result.rawMessages },
+              }
+            }
+
+            return {
+              content: [{ type: 'text', text: result.content }],
+              details: result.data ?? null,
+            }
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error)
+            return { content: [{ type: 'text', text: `Error: ${msg}` }], details: null }
+          }
+        },
+      }
+    },
+  }
+}

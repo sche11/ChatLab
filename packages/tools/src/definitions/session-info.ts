@@ -19,14 +19,15 @@ const inputSchema: JsonSchema = {
 }
 
 function handler(params: Record<string, unknown>, context: ToolExecutionContext): ToolResult {
-  const meta = getSessionMeta(context.db)
-  const overview = getSessionOverview(context.db)
+  const db = context.db!
+  const meta = getSessionMeta(db)
+  const overview = getSessionOverview(db)
   const includeMembers = params.include_members as boolean
 
   const data: Record<string, unknown> = { ...meta, ...overview }
 
   if (includeMembers) {
-    data.members = getMembers(context.db)
+    data.members = getMembers(db)
   }
 
   return {
