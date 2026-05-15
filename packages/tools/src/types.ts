@@ -53,6 +53,99 @@ export interface SchemaTableInfo {
   sql: string
 }
 
+export interface ChatOverviewResult {
+  name: string
+  platform: string
+  type: string
+  totalMessages: number
+  totalMembers: number
+  firstMessageTs: number | null
+  lastMessageTs: number | null
+  topMembers: Array<{ id: number; name: string; count: number }>
+}
+
+export interface MemberInfo {
+  id: number
+  platformId: string
+  accountName: string | null
+  groupNickname: string | null
+  aliases: string[]
+  messageCount: number
+}
+
+export interface NameHistoryItem {
+  nameType: string
+  name: string
+  startTs: number
+  endTs: number | null
+}
+
+export interface SessionSearchResult {
+  id: number
+  startTs: number
+  endTs: number
+  messageCount: number
+  isComplete: boolean
+  previewMessages: Array<{
+    id: number
+    senderName: string
+    content: string | null
+    timestamp: number
+  }>
+}
+
+export interface SessionMessagesResult {
+  sessionId: number
+  startTs: number
+  endTs: number
+  messageCount: number
+  returnedCount: number
+  participants: string[]
+  messages: Array<{
+    id: number
+    senderName: string
+    content: string | null
+    timestamp: number
+  }>
+}
+
+export interface ConversationResult {
+  messages: RawMessage[]
+  total: number
+  member1Name: string
+  member2Name: string
+}
+
+export interface SessionSummaryItem {
+  id: number
+  startTs: number
+  endTs: number
+  messageCount: number
+  participants: string[]
+  summary: string | null
+}
+
+/**
+ * 声明式 SQL 工具执行配置
+ */
+export interface SqlToolExecution {
+  type: 'sqlite'
+  query: string
+  rowTemplate: string
+  summaryTemplate?: string
+  fallback: string
+}
+
+/**
+ * 声明式 SQL 工具定义
+ */
+export interface SqlToolDef {
+  name: string
+  description: string
+  parameters: JsonSchema
+  execution: SqlToolExecution
+}
+
 /**
  * 工具数据查询抽象接口
  *
@@ -61,18 +154,60 @@ export interface SchemaTableInfo {
  * - WorkerDataProvider: 通过 workerManager IPC 调用 Worker 线程
  */
 export interface ToolDataProvider {
+  // === 基础查询 ===
   searchMessages(
     keywords: string[],
     options?: { timeFilter?: TimeFilter; limit?: number; senderId?: number }
   ): Promise<SearchMessagesResult>
 
+  deepSearchMessages(
+    keywords: string[],
+    options?: { timeFilter?: TimeFilter; limit?: number; senderId?: number }
+  ): Promise<SearchMessagesResult>
+
+  getSearchMessageContext(messageIds: number[], contextBefore: number, contextAfter: number): Promise<RawMessage[]>
+
   getRecentMessages(options?: { timeFilter?: TimeFilter; limit?: number }): Promise<SearchMessagesResult>
+
+  getMessageContext(messageIds: number[], contextSize: number): Promise<RawMessage[]>
+
+  // === 聊天概览 ===
+  getChatOverview(topN?: number): Promise<ChatOverviewResult | null>
+
+  // === 成员相关 ===
+  getMembers(): Promise<MemberInfo[]>
 
   getMemberStats(options?: { timeFilter?: TimeFilter; top?: number }): Promise<MemberStatItem[]>
 
+  getMemberNameHistory(memberId: number): Promise<NameHistoryItem[]>
+
+  // === 时间统计 ===
   getTimeStats(type: 'hourly' | 'weekday' | 'daily', options?: { timeFilter?: TimeFilter }): Promise<unknown[]>
 
+  // === 会话相关 ===
+  searchSessions(
+    keywords?: string[],
+    timeFilter?: TimeFilter,
+    limit?: number,
+    previewCount?: number
+  ): Promise<SessionSearchResult[]>
+
+  getSessionMessages(chatSessionId: number, limit?: number): Promise<SessionMessagesResult | null>
+
+  getSessionSummaries(options?: { limit?: number; timeFilter?: TimeFilter }): Promise<SessionSummaryItem[]>
+
+  // === 对话查询 ===
+  getConversationBetween(
+    memberId1: number,
+    memberId2: number,
+    timeFilter?: TimeFilter,
+    limit?: number
+  ): Promise<ConversationResult>
+
+  // === SQL ===
   executeSql(sql: string): Promise<unknown>
+
+  executeParameterizedSql<T = Record<string, unknown>>(query: string, params: Record<string, unknown>): Promise<T[]>
 
   getSchema(): Promise<SchemaTableInfo[]>
 }
@@ -80,19 +215,35 @@ export interface ToolDataProvider {
 // ==================== Tool Context ====================
 
 /**
+ * NLP 分词结果
+ */
+export interface SegmentResult {
+  words: Map<string, number>
+  uniqueWords: number
+  totalWords: number
+}
+
+/**
  * 工具执行上下文
- *
- * 过渡期：db 保持 required 以兼容现有工具，dataProvider 为 optional。
- * 迁移完成后 db 降为 optional / 移除。
  */
 export interface ToolExecutionContext {
   sessionId: string
   locale?: string
   timeFilter?: TimeFilter
-  /** 抽象查询接口，迁移后的工具使用此字段获取数据 */
+  /** 抽象查询接口 */
   dataProvider?: ToolDataProvider
   /** @deprecated 逐步迁移到 dataProvider 后移除；Electron 端不提供此字段 */
   db?: DatabaseAdapter
+  /** 搜索结果上下文：向前取多少条 */
+  searchContextBefore?: number
+  /** 搜索结果上下文：向后取多少条 */
+  searchContextAfter?: number
+  /** 消息条数上限 */
+  maxMessagesLimit?: number
+  /** NLP 分词回调（由平台注入 batchSegmentWithFrequency 实现） */
+  segmentText?: (texts: string[], locale: string, options: Record<string, unknown>) => SegmentResult
+  /** i18n 模板翻译回调（用于 SQL 工具模板国际化） */
+  translateTemplate?: (key: string) => string | undefined
 }
 
 // ==================== Raw Message ====================

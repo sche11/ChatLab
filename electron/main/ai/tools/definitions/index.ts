@@ -2,83 +2,86 @@
  * 工具定义聚合 + 统一注册表
  *
  * TOOL_REGISTRY 是全局唯一的工具清单，驱动后端加载和前端目录展示。
- * 新增工具只需在此追加一条 ToolRegistryEntry。
- *
- * 部分工具已迁移到 @openchatlab/tools 共享定义，通过 shared-tool-adapter 适配。
+ * 所有工具定义来自 @openchatlab/tools 共享包，通过 adaptSharedTool 适配为 Electron AgentTool。
  */
 
 import type { ToolRegistryEntry } from '../types'
 
-// Electron-only 工具（保留原生实现）
-import { createTool as createGetChatOverview } from './get-chat-overview'
-import { createTool as createSearchMessages } from './search-messages'
-import { createTool as createDeepSearchMessages } from './deep-search-messages'
-import { createTool as createGetRecentMessages } from './get-recent-messages'
-import { createTool as createGetMessageContext } from './get-message-context'
-import { createTool as createSearchSessions } from './search-sessions'
-import { createTool as createGetSessionMessages } from './get-session-messages'
-import { createTool as createGetMembers } from './get-group-members'
-import { createTool as createGetMemberNameHistory } from './get-member-name-history'
-import { createTool as createGetConversationBetween } from './get-conversation-between'
-import { createTool as createGetSessionSummaries } from './get-session-summaries'
-import { createTool as createResponseTimeAnalysis } from './response-time-analysis'
-import { createTool as createKeywordFrequency } from './keyword-frequency'
+import {
+  chatOverviewTool,
+  searchMessagesTool,
+  deepSearchMessagesTool,
+  recentMessagesTool,
+  getMessageContextTool,
+  searchSessionsTool,
+  getSessionMessagesTool,
+  getMembersTool,
+  memberStatsTool,
+  timeStatsTool,
+  getMemberNameHistoryTool,
+  getConversationBetweenTool,
+  getSessionSummariesTool,
+  responseTimeAnalysisTool,
+  keywordFrequencyTool,
+  SQL_TOOL_DEFS,
+  createSqlToolDefinition,
+} from '@openchatlab/tools'
 
-import { sqlToolEntries } from './sql-analysis'
-
-// 共享工具定义（通过 adapter 适配为 Electron AgentTool）
-import { memberStatsTool, timeStatsTool } from '@openchatlab/tools'
 import { adaptSharedTool } from '../shared-tool-adapter'
 
-export { sqlToolEntries } from './sql-analysis'
+// SQL 工具转换为 ToolDefinition 再适配
+const sqlToolDefinitions = SQL_TOOL_DEFS.map(createSqlToolDefinition)
 
-const sharedMemberStats = adaptSharedTool(memberStatsTool, {
-  electronName: 'get_member_stats',
-  category: 'analysis',
-})
+export const sqlToolEntries: ToolRegistryEntry[] = sqlToolDefinitions.map((t) =>
+  adaptSharedTool(t, { electronName: t.name, category: 'analysis' })
+)
 
-const sharedTimeStats = adaptSharedTool(timeStatsTool, {
-  electronName: 'get_time_stats',
-  category: 'analysis',
-})
+export const SQL_TOOL_NAMES = SQL_TOOL_DEFS.map((d) => d.name)
 
 export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   // ==================== Core 工具（始终加载） ====================
-  { name: 'get_chat_overview', factory: createGetChatOverview, category: 'core' },
-  { name: 'search_messages', factory: createSearchMessages, category: 'core', truncationStrategy: 'keep_first' },
-  {
-    name: 'deep_search_messages',
-    factory: createDeepSearchMessages,
+  adaptSharedTool(chatOverviewTool, { electronName: 'get_chat_overview', category: 'core' }),
+  adaptSharedTool(searchMessagesTool, {
+    electronName: 'search_messages',
     category: 'core',
     truncationStrategy: 'keep_first',
-  },
-  { name: 'get_recent_messages', factory: createGetRecentMessages, category: 'core', truncationStrategy: 'keep_last' },
-  { name: 'get_message_context', factory: createGetMessageContext, category: 'core', truncationStrategy: 'keep_last' },
-  { name: 'search_sessions', factory: createSearchSessions, category: 'core' },
-  {
-    name: 'get_session_messages',
-    factory: createGetSessionMessages,
+  }),
+  adaptSharedTool(deepSearchMessagesTool, {
+    electronName: 'deep_search_messages',
+    category: 'core',
+    truncationStrategy: 'keep_first',
+  }),
+  adaptSharedTool(recentMessagesTool, {
+    electronName: 'get_recent_messages',
     category: 'core',
     truncationStrategy: 'keep_last',
-  },
-  { name: 'get_members', factory: createGetMembers, category: 'core' },
+  }),
+  adaptSharedTool(getMessageContextTool, {
+    electronName: 'get_message_context',
+    category: 'core',
+    truncationStrategy: 'keep_last',
+  }),
+  adaptSharedTool(searchSessionsTool, { electronName: 'search_sessions', category: 'core' }),
+  adaptSharedTool(getSessionMessagesTool, {
+    electronName: 'get_session_messages',
+    category: 'core',
+    truncationStrategy: 'keep_last',
+  }),
+  adaptSharedTool(getMembersTool, { electronName: 'get_members', category: 'core' }),
 
   // ==================== Analysis 工具（按需加载） ====================
-  // 共享工具（via @openchatlab/tools）
-  sharedMemberStats,
-  sharedTimeStats,
-  // Electron-only 工具
-  { name: 'get_member_name_history', factory: createGetMemberNameHistory, category: 'analysis' },
-  {
-    name: 'get_conversation_between',
-    factory: createGetConversationBetween,
+  adaptSharedTool(memberStatsTool, { electronName: 'get_member_stats', category: 'analysis' }),
+  adaptSharedTool(timeStatsTool, { electronName: 'get_time_stats', category: 'analysis' }),
+  adaptSharedTool(getMemberNameHistoryTool, { electronName: 'get_member_name_history', category: 'analysis' }),
+  adaptSharedTool(getConversationBetweenTool, {
+    electronName: 'get_conversation_between',
     category: 'analysis',
     truncationStrategy: 'keep_last',
-  },
-  { name: 'get_session_summaries', factory: createGetSessionSummaries, category: 'analysis' },
-  { name: 'response_time_analysis', factory: createResponseTimeAnalysis, category: 'analysis' },
-  { name: 'keyword_frequency', factory: createKeywordFrequency, category: 'analysis' },
+  }),
+  adaptSharedTool(getSessionSummariesTool, { electronName: 'get_session_summaries', category: 'analysis' }),
+  adaptSharedTool(responseTimeAnalysisTool, { electronName: 'response_time_analysis', category: 'analysis' }),
+  adaptSharedTool(keywordFrequencyTool, { electronName: 'keyword_frequency', category: 'analysis' }),
 
-  // SQL 分析工具
+  // ==================== SQL 分析工具 ====================
   ...sqlToolEntries,
 ]

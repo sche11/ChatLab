@@ -1,10 +1,13 @@
 /**
  * 最近消息工具
  *
- * 获取最近 N 条聊天消息。
+ * 获取指定时间段内的群聊消息，支持 start_time/end_time 参数。
  */
 
 import type { ToolDefinition, ToolExecutionContext, ToolResult, JsonSchema } from '../types'
+import { parseExtendedTimeParams } from '../utils/time-params'
+import { formatTimeRange } from '../utils/format'
+import { timeParamProperties } from '../utils/schemas'
 
 const inputSchema: JsonSchema = {
   type: 'object',
@@ -12,22 +15,24 @@ const inputSchema: JsonSchema = {
     limit: {
       type: 'number',
       description: '返回的消息条数',
-      default: 20,
+      default: 100,
     },
+    ...timeParamProperties,
   },
 }
 
 async function handler(params: Record<string, unknown>, context: ToolExecutionContext): Promise<ToolResult> {
-  const limit = (params.limit as number) || 20
-  const result = await context.dataProvider!.getRecentMessages({ timeFilter: context.timeFilter, limit })
+  const { locale, timeFilter: contextTimeFilter, maxMessagesLimit } = context
+  const limit = maxMessagesLimit || (params.limit as number) || 100
+  const effectiveTimeFilter = parseExtendedTimeParams(params as any, contextTimeFilter)
+
+  const result = await context.dataProvider!.getRecentMessages({ timeFilter: effectiveTimeFilter, limit })
 
   const data = {
+    total: result.total,
     returned: result.messages.length,
-    messages: result.messages.map((m) => ({
-      sender: m.senderName,
-      content: m.content,
-      time: new Date(m.timestamp * 1000).toISOString(),
-    })),
+    timeRange: formatTimeRange(effectiveTimeFilter, locale),
+    rawMessages: result.messages,
   }
 
   return {
@@ -39,7 +44,7 @@ async function handler(params: Record<string, unknown>, context: ToolExecutionCo
 
 export const recentMessagesTool: ToolDefinition = {
   name: 'chatlab_recent_messages',
-  description: '获取最近的聊天消息',
+  description: '获取指定时间段内的群聊消息。适用于回答"最近大家聊了什么"等概览性问题。支持精确到分钟级别的时间查询。',
   inputSchema,
   handler,
   category: 'core',

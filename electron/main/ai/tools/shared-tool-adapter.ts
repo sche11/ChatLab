@@ -7,11 +7,12 @@
 
 import type { ToolDefinition, ToolExecutionContext } from '@openchatlab/tools'
 import type { AgentTool, AgentToolResult } from '@openchatlab/node-runtime'
+import { batchSegmentWithFrequency } from '@openchatlab/node-runtime'
 import type { ToolContext, ToolRegistryEntry, ToolCategory } from './types'
 import { WorkerDataProvider } from './worker-data-provider'
+import { t as i18nT } from '../../i18n'
 
 interface AdaptOptions {
-  /** Electron 端工具名（覆盖共享定义的名称） */
   electronName: string
   category: ToolCategory
   truncationStrategy?: 'keep_first' | 'keep_last'
@@ -23,17 +24,22 @@ function buildExecutionContext(ctx: ToolContext): ToolExecutionContext {
     sessionId: ctx.sessionId,
     locale: ctx.locale,
     timeFilter: ctx.timeFilter,
+    searchContextBefore: ctx.searchContextBefore,
+    searchContextAfter: ctx.searchContextAfter,
+    maxMessagesLimit: ctx.maxMessagesLimit,
+    segmentText: (texts, locale, options) => batchSegmentWithFrequency(texts, locale as any, options as any),
+    translateTemplate: (key: string) => {
+      const translated = i18nT(key)
+      return translated !== key ? translated : undefined
+    },
   }
 }
 
-/**
- * 将单个 ToolDefinition 适配为 Electron ToolRegistryEntry
- */
 export function adaptSharedTool(tool: ToolDefinition, options: AdaptOptions): ToolRegistryEntry {
   return {
     name: options.electronName,
     category: options.category,
-    truncationStrategy: options.truncationStrategy,
+    truncationStrategy: options.truncationStrategy ?? tool.truncationStrategy,
     factory(context: ToolContext): AgentTool<any> {
       const schema = {
         type: 'object' as const,

@@ -1,20 +1,24 @@
 /**
  * 时间参数解析工具
+ *
+ * 从 Electron 工具提取的共享实用函数，处理 start_time/end_time 字符串参数。
  */
 
+import type { TimeFilter } from '../types'
+
 export interface ExtendedTimeParams {
-  start_time?: string // 格式: "YYYY-MM-DD HH:mm"
-  end_time?: string // 格式: "YYYY-MM-DD HH:mm"
+  start_time?: string
+  end_time?: string
 }
 
 /**
  * 解析时间参数，返回时间过滤器
- * 优先级: start_time/end_time > context.timeFilter
+ * 优先级: start_time/end_time > contextTimeFilter
  */
 export function parseExtendedTimeParams(
   params: ExtendedTimeParams,
-  contextTimeFilter?: { startTs: number; endTs: number }
-): { startTs: number; endTs: number } | undefined {
+  contextTimeFilter?: TimeFilter
+): TimeFilter | undefined {
   if (params.start_time || params.end_time) {
     let startTs: number | undefined
     let endTs: number | undefined

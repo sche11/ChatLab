@@ -12,7 +12,25 @@ import type {
   MemberStatItem,
   SchemaTableInfo,
   TimeFilter,
+  ChatOverviewResult,
+  MemberInfo,
+  NameHistoryItem,
+  SessionSearchResult,
+  SessionMessagesResult,
+  ConversationResult,
+  SessionSummaryItem,
+  RawMessage,
 } from '@openchatlab/tools'
+
+function mapSearchMessages(messages: workerManager.SearchMessageResult[]): RawMessage[] {
+  return messages.map((m) => ({
+    id: m.id,
+    senderName: m.senderName,
+    senderPlatformId: m.senderPlatformId,
+    content: m.content,
+    timestamp: m.timestamp,
+  }))
+}
 
 export class WorkerDataProvider implements ToolDataProvider {
   constructor(private sessionId: string) {}
@@ -29,32 +47,62 @@ export class WorkerDataProvider implements ToolDataProvider {
       0,
       options?.senderId
     )
+    return { messages: mapSearchMessages(result.messages), total: result.total }
+  }
 
-    return {
-      messages: result.messages.map((m) => ({
-        id: m.id,
-        senderName: m.senderName,
-        senderPlatformId: m.senderPlatformId,
-        content: m.content,
-        timestamp: m.timestamp,
-      })),
-      total: result.total,
-    }
+  async deepSearchMessages(
+    keywords: string[],
+    options?: { timeFilter?: TimeFilter; limit?: number; senderId?: number }
+  ): Promise<SearchMessagesResult> {
+    const result = await workerManager.deepSearchMessages(
+      this.sessionId,
+      keywords,
+      options?.timeFilter,
+      options?.limit ?? 50,
+      0,
+      options?.senderId
+    )
+    return { messages: mapSearchMessages(result.messages), total: result.total }
+  }
+
+  async getSearchMessageContext(
+    messageIds: number[],
+    contextBefore: number,
+    contextAfter: number
+  ): Promise<RawMessage[]> {
+    const messages = await workerManager.getSearchMessageContext(
+      this.sessionId,
+      messageIds,
+      contextBefore,
+      contextAfter
+    )
+    return mapSearchMessages(messages)
   }
 
   async getRecentMessages(options?: { timeFilter?: TimeFilter; limit?: number }): Promise<SearchMessagesResult> {
     const result = await workerManager.getRecentMessages(this.sessionId, options?.timeFilter, options?.limit ?? 50)
+    return { messages: mapSearchMessages(result.messages), total: result.total }
+  }
 
-    return {
-      messages: result.messages.map((m) => ({
-        id: m.id,
-        senderName: m.senderName,
-        senderPlatformId: m.senderPlatformId,
-        content: m.content,
-        timestamp: m.timestamp,
-      })),
-      total: result.total,
-    }
+  async getMessageContext(messageIds: number[], contextSize: number): Promise<RawMessage[]> {
+    const messages = await workerManager.getMessageContext(this.sessionId, messageIds, contextSize)
+    return mapSearchMessages(messages)
+  }
+
+  async getChatOverview(topN?: number): Promise<ChatOverviewResult | null> {
+    return workerManager.getChatOverview(this.sessionId, topN)
+  }
+
+  async getMembers(): Promise<MemberInfo[]> {
+    const members = await workerManager.getMembers(this.sessionId)
+    return members.map((m) => ({
+      id: m.id,
+      platformId: m.platformId,
+      accountName: m.accountName,
+      groupNickname: m.groupNickname,
+      aliases: m.aliases,
+      messageCount: m.messageCount,
+    }))
   }
 
   async getMemberStats(options?: { timeFilter?: TimeFilter; top?: number }): Promise<MemberStatItem[]> {
@@ -65,6 +113,10 @@ export class WorkerDataProvider implements ToolDataProvider {
       messageCount: m.messageCount,
       percentage: m.percentage,
     }))
+  }
+
+  async getMemberNameHistory(memberId: number): Promise<NameHistoryItem[]> {
+    return workerManager.getMemberNameHistory(this.sessionId, memberId)
   }
 
   async getTimeStats(type: 'hourly' | 'weekday' | 'daily', options?: { timeFilter?: TimeFilter }): Promise<unknown[]> {
@@ -80,8 +132,50 @@ export class WorkerDataProvider implements ToolDataProvider {
     }
   }
 
+  async searchSessions(
+    keywords?: string[],
+    timeFilter?: TimeFilter,
+    limit?: number,
+    previewCount?: number
+  ): Promise<SessionSearchResult[]> {
+    return workerManager.searchSessions(this.sessionId, keywords, timeFilter, limit, previewCount)
+  }
+
+  async getSessionMessages(chatSessionId: number, limit?: number): Promise<SessionMessagesResult | null> {
+    return workerManager.getSessionMessages(this.sessionId, chatSessionId, limit)
+  }
+
+  async getSessionSummaries(options?: { limit?: number; timeFilter?: TimeFilter }): Promise<SessionSummaryItem[]> {
+    return workerManager.getSessionSummaries(this.sessionId, {
+      limit: options?.limit,
+      timeFilter: options?.timeFilter,
+    })
+  }
+
+  async getConversationBetween(
+    memberId1: number,
+    memberId2: number,
+    timeFilter?: TimeFilter,
+    limit?: number
+  ): Promise<ConversationResult> {
+    const result = await workerManager.getConversationBetween(this.sessionId, memberId1, memberId2, timeFilter, limit)
+    return {
+      messages: mapSearchMessages(result.messages),
+      total: result.total,
+      member1Name: result.member1Name,
+      member2Name: result.member2Name,
+    }
+  }
+
   async executeSql(sql: string): Promise<unknown> {
     return workerManager.executeRawSQL(this.sessionId, sql)
+  }
+
+  async executeParameterizedSql<T = Record<string, unknown>>(
+    query: string,
+    params: Record<string, unknown>
+  ): Promise<T[]> {
+    return workerManager.pluginQuery<T>(this.sessionId, query, params)
   }
 
   async getSchema(): Promise<SchemaTableInfo[]> {

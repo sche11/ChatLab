@@ -1,17 +1,13 @@
 /**
- * SQL 分析工具定义集合
+ * 内置 SQL 分析工具定义集合
  *
- * 声明式 SQL 工具，与 TS 工具遵循相同的工厂函数模式。
- * 每个工具通过 createSqlTool() 将 JSON 定义转化为 AgentTool。
+ * 声明式 SQL 工具：每个定义在 LLM 眼中是一个 Function Calling 工具，
+ * 执行时通过参数化 SQL 查询数据库，将结果格式化为文本返回给 LLM。
  */
 
-import type { AgentTool } from '@openchatlab/node-runtime'
-import type { ToolContext, ToolRegistryEntry } from '../types'
-import type { CustomSqlToolDef } from '../../assistant/types'
-import { createSqlTool } from '../../assistant/sqlToolRunner'
-import { t as i18nT } from '../../../i18n'
+import type { SqlToolDef } from '../types'
 
-const SQL_TOOL_DEFS: CustomSqlToolDef[] = [
+export const SQL_TOOL_DEFS: SqlToolDef[] = [
   // ==================== 通用分析 ====================
   {
     name: 'message_type_breakdown',
@@ -243,40 +239,3 @@ const SQL_TOOL_DEFS: CustomSqlToolDef[] = [
     },
   },
 ]
-
-/**
- * SQL 分析工具工厂函数数组（与 TS 工具 createTool 模式一致）
- */
-export const sqlToolFactories = SQL_TOOL_DEFS.map(
-  (def) =>
-    (context: ToolContext): AgentTool<any> =>
-      createSqlTool(def, context)
-)
-
-/**
- * SQL 工具注册表条目（全部为 analysis 类别）
- */
-export const sqlToolEntries: ToolRegistryEntry[] = SQL_TOOL_DEFS.map((def) => ({
-  name: def.name,
-  factory: (context: ToolContext): AgentTool<any> => createSqlTool(def, context),
-  category: 'analysis' as const,
-}))
-
-/**
- * 所有内置 SQL 工具的名称集合（用于前端分组展示）
- */
-export const SQL_TOOL_NAMES = SQL_TOOL_DEFS.map((d) => d.name)
-
-/**
- * 获取内置 SQL 工具目录（供前端展示）
- */
-export function getSqlToolCatalog(): Array<{ name: string; description: string }> {
-  return SQL_TOOL_DEFS.map((d) => {
-    const descKey = `ai.tools.${d.name}.desc`
-    const translated = i18nT(descKey)
-    return {
-      name: d.name,
-      description: translated !== descKey ? translated : d.description,
-    }
-  })
-}
