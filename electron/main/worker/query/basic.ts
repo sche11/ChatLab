@@ -5,7 +5,7 @@
 
 import Database from 'better-sqlite3'
 import * as fs from 'fs'
-import { openDatabase, closeDatabase, getDbPath, getCacheDir, openDatabaseAdapter, type TimeFilter } from '../core'
+import { closeDatabase, getDbPath, getCacheDir, openDatabaseAdapter, type TimeFilter } from '../core'
 import { getCache, CACHE_KEY_OVERVIEW, type OverviewCache } from '../../database/sessionCache'
 import {
   getAvailableYears as coreGetAvailableYears,
@@ -18,7 +18,11 @@ import {
   getMessageTypeStats as coreGetMessageTypeStats,
   getMessageLengthDistribution as coreGetMessageLengthDistribution,
   getTimeRange as coreGetTimeRange,
+  getMemberNameHistory as coreGetMemberNameHistory,
+  getMembersWithAliases as coreGetMembersWithAliases,
+  getMembersPaginated as coreGetMembersPaginated,
 } from '@openchatlab/core'
+import type { MembersPaginationParams, MembersPaginatedResult, MemberWithAliases } from '@openchatlab/core'
 
 // ==================== 基础查询（委托给 core） ====================
 
@@ -94,40 +98,15 @@ export function getTimeRange(sessionId: string): { start: number; end: number } 
 }
 
 /**
- * 获取成员的历史昵称记录
+ * 获取成员的历史昵称记录 (delegates to core)
  */
 export function getMemberNameHistory(sessionId: string, memberId: number): any[] {
-  const db = openDatabase(sessionId)
+  const db = openDatabaseAdapter(sessionId)
   if (!db) return []
-
-  const rows = db
-    .prepare(
-      `
-      SELECT name_type as nameType, name, start_ts as startTs, end_ts as endTs
-      FROM member_name_history
-      WHERE member_id = ?
-      ORDER BY start_ts DESC
-    `
-    )
-    .all(memberId) as Array<{ nameType: string; name: string; startTs: number; endTs: number | null }>
-
-  return rows
+  return coreGetMemberNameHistory(db, memberId)
 }
 
 // ==================== 成员管理 ====================
-
-/**
- * 成员信息（含统计数据）
- */
-interface MemberWithStats {
-  id: number
-  platformId: string
-  accountName: string | null
-  groupNickname: string | null
-  aliases: string[]
-  messageCount: number
-  avatar: string | null
-}
 
 // 用于标记已检查过 aliases 字段的会话
 const aliasesCheckedSessions = new Set<string>()
@@ -208,165 +187,34 @@ export function ensureAvatarColumn(sessionId: string): void {
 
 /**
  * 获取所有成员列表（含消息数、别名和头像）
+ * Delegates to core getMembersWithAliases after ensuring schema columns exist.
  */
-export function getMembers(sessionId: string): MemberWithStats[] {
-  // 先确保数据库有 aliases 和 avatar 字段（兼容旧数据库）
+export function getMembers(sessionId: string): MemberWithAliases[] {
   ensureAliasesColumn(sessionId)
   ensureAvatarColumn(sessionId)
 
-  const db = openDatabase(sessionId)
+  const db = openDatabaseAdapter(sessionId)
   if (!db) return []
-
-  const rows = db
-    .prepare(
-      `
-      SELECT
-        m.id,
-        m.platform_id as platformId,
-        m.account_name as accountName,
-        m.group_nickname as groupNickname,
-        m.aliases,
-        m.avatar,
-        COUNT(msg.id) as messageCount
-      FROM member m
-      LEFT JOIN message msg ON m.id = msg.sender_id
-      WHERE COALESCE(m.group_nickname, m.account_name, m.platform_id) != '系统消息'
-      GROUP BY m.id
-      ORDER BY messageCount DESC
-    `
-    )
-    .all() as Array<{
-    id: number
-    platformId: string
-    accountName: string | null
-    groupNickname: string | null
-    aliases: string | null
-    avatar: string | null
-    messageCount: number
-  }>
-
-  return rows.map((row) => ({
-    id: row.id,
-    platformId: row.platformId,
-    accountName: row.accountName,
-    groupNickname: row.groupNickname,
-    aliases: row.aliases ? JSON.parse(row.aliases) : [],
-    messageCount: row.messageCount,
-    avatar: row.avatar,
-  }))
+  return coreGetMembersWithAliases(db)
 }
 
-/**
- * 分页参数类型
- */
-export interface MembersPaginationParams {
-  page: number
-  pageSize: number
-  search?: string
-  sortOrder?: 'asc' | 'desc'
-}
-
-/**
- * 分页结果类型
- */
-export interface MembersPaginatedResult {
-  members: MemberWithStats[]
-  total: number
-  page: number
-  pageSize: number
-  totalPages: number
-}
+export type { MembersPaginationParams, MembersPaginatedResult }
 
 /**
  * 获取成员列表（分页版本，支持搜索和排序）
+ * Delegates to core getMembersPaginated after ensuring schema columns exist.
  */
 export function getMembersPaginated(sessionId: string, params: MembersPaginationParams): MembersPaginatedResult {
-  const { page = 1, pageSize = 20, search = '', sortOrder = 'desc' } = params
-
-  // 先确保数据库有 aliases 和 avatar 字段（兼容旧数据库）
   ensureAliasesColumn(sessionId)
   ensureAvatarColumn(sessionId)
 
-  const db = openDatabase(sessionId)
+  const db = openDatabaseAdapter(sessionId)
   if (!db) {
+    const page = params.page ?? 1
+    const pageSize = params.pageSize ?? 20
     return { members: [], total: 0, page, pageSize, totalPages: 0 }
   }
-
-  // 构建搜索条件
-  const searchCondition = search
-    ? `AND (
-        m.group_nickname LIKE '%' || @search || '%' COLLATE NOCASE
-        OR m.account_name LIKE '%' || @search || '%' COLLATE NOCASE
-        OR m.platform_id LIKE '%' || @search || '%' COLLATE NOCASE
-        OR m.aliases LIKE '%' || @search || '%' COLLATE NOCASE
-      )`
-    : ''
-
-  // 排序方向
-  const orderDirection = sortOrder === 'asc' ? 'ASC' : 'DESC'
-
-  // 计算总数
-  const countResult = db
-    .prepare(
-      `
-      SELECT COUNT(*) as total FROM (
-        SELECT m.id
-        FROM member m
-        LEFT JOIN message msg ON m.id = msg.sender_id
-        WHERE COALESCE(m.group_nickname, m.account_name, m.platform_id) != '系统消息'
-        ${searchCondition}
-        GROUP BY m.id
-      )
-    `
-    )
-    .get({ search }) as { total: number }
-
-  const total = countResult?.total || 0
-  const totalPages = Math.ceil(total / pageSize)
-  const offset = (page - 1) * pageSize
-
-  // 查询分页数据
-  const rows = db
-    .prepare(
-      `
-      SELECT
-        m.id,
-        m.platform_id as platformId,
-        m.account_name as accountName,
-        m.group_nickname as groupNickname,
-        m.aliases,
-        m.avatar,
-        COUNT(msg.id) as messageCount
-      FROM member m
-      LEFT JOIN message msg ON m.id = msg.sender_id
-      WHERE COALESCE(m.group_nickname, m.account_name, m.platform_id) != '系统消息'
-      ${searchCondition}
-      GROUP BY m.id
-      ORDER BY messageCount ${orderDirection}
-      LIMIT @pageSize OFFSET @offset
-    `
-    )
-    .all({ search, pageSize, offset }) as Array<{
-    id: number
-    platformId: string
-    accountName: string | null
-    groupNickname: string | null
-    aliases: string | null
-    avatar: string | null
-    messageCount: number
-  }>
-
-  const members = rows.map((row) => ({
-    id: row.id,
-    platformId: row.platformId,
-    accountName: row.accountName,
-    groupNickname: row.groupNickname,
-    aliases: row.aliases ? JSON.parse(row.aliases) : [],
-    messageCount: row.messageCount,
-    avatar: row.avatar,
-  }))
-
-  return { members, total, page, pageSize, totalPages }
+  return coreGetMembersPaginated(db, params)
 }
 
 /**

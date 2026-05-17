@@ -351,7 +351,23 @@ export interface MemberWithAliases {
   accountName: string | null
   groupNickname: string | null
   aliases: string[]
+  avatar: string | null
   messageCount: number
+}
+
+export interface MembersPaginationParams {
+  page?: number
+  pageSize?: number
+  search?: string
+  sortOrder?: 'asc' | 'desc'
+}
+
+export interface MembersPaginatedResult {
+  members: MemberWithAliases[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
 }
 
 /**
@@ -533,18 +549,20 @@ export function getMemberNameHistory(db: DatabaseAdapter, memberId: number): Mem
 }
 
 /**
- * Get member list with aliases and detailed info
+ * Get member list with aliases, avatar and detailed info
  */
 export function getMembersWithAliases(db: DatabaseAdapter): MemberWithAliases[] {
   const aliasesAvailable = hasColumn(db, 'member', 'aliases')
+  const avatarAvailable = hasColumn(db, 'member', 'avatar')
 
   const aliasesSelect = aliasesAvailable ? 'm.aliases' : 'NULL as aliases'
+  const avatarSelect = avatarAvailable ? 'm.avatar' : 'NULL as avatar'
   const rows = db
     .prepare(
       `SELECT
         m.id, m.platform_id as platformId,
         m.account_name as accountName, m.group_nickname as groupNickname,
-        ${aliasesSelect},
+        ${aliasesSelect}, ${avatarSelect},
         COUNT(msg.id) as messageCount
       FROM member m
       LEFT JOIN message msg ON m.id = msg.sender_id
@@ -557,17 +575,102 @@ export function getMembersWithAliases(db: DatabaseAdapter): MemberWithAliases[] 
     accountName: string | null
     groupNickname: string | null
     aliases: string | null
+    avatar: string | null
     messageCount: number
   }>
 
-  return rows.map((row) => ({
+  return rows.map(mapMemberRow)
+}
+
+/**
+ * Paginated member list with search and sort.
+ */
+export function getMembersPaginated(db: DatabaseAdapter, params: MembersPaginationParams): MembersPaginatedResult {
+  const page = Math.max(1, params.page ?? 1)
+  const pageSize = Math.min(100, Math.max(1, params.pageSize ?? 20))
+  const search = params.search?.trim() || ''
+  const sortDirection = params.sortOrder === 'asc' ? 'ASC' : 'DESC'
+
+  const aliasesAvailable = hasColumn(db, 'member', 'aliases')
+  const avatarAvailable = hasColumn(db, 'member', 'avatar')
+  const aliasesSelect = aliasesAvailable ? 'm.aliases' : 'NULL as aliases'
+  const avatarSelect = avatarAvailable ? 'm.avatar' : 'NULL as avatar'
+
+  let searchClause = ''
+  const searchParams: unknown[] = []
+  if (search) {
+    const clauses = ['m.account_name LIKE ?', 'm.group_nickname LIKE ?', 'm.platform_id LIKE ?']
+    const like = `%${search}%`
+    searchParams.push(like, like, like)
+    if (aliasesAvailable) {
+      clauses.push('m.aliases LIKE ?')
+      searchParams.push(like)
+    }
+    searchClause = `AND (${clauses.join(' OR ')})`
+  }
+
+  const systemFilter = "COALESCE(m.group_nickname, m.account_name, m.platform_id) != '系统消息'"
+
+  const countRow = db
+    .prepare(
+      `SELECT COUNT(*) as total FROM (
+        SELECT m.id FROM member m
+        LEFT JOIN message msg ON m.id = msg.sender_id
+        WHERE ${systemFilter} ${searchClause}
+        GROUP BY m.id
+      )`
+    )
+    .get(...searchParams) as { total: number } | undefined
+
+  const total = countRow?.total ?? 0
+  const totalPages = Math.ceil(total / pageSize)
+  const offset = (page - 1) * pageSize
+
+  const rows = db
+    .prepare(
+      `SELECT
+        m.id, m.platform_id as platformId,
+        m.account_name as accountName, m.group_nickname as groupNickname,
+        ${aliasesSelect}, ${avatarSelect},
+        COUNT(msg.id) as messageCount
+      FROM member m
+      LEFT JOIN message msg ON m.id = msg.sender_id
+      WHERE ${systemFilter} ${searchClause}
+      GROUP BY m.id
+      ORDER BY messageCount ${sortDirection}
+      LIMIT ? OFFSET ?`
+    )
+    .all(...searchParams, pageSize, offset) as Array<{
+    id: number
+    platformId: string
+    accountName: string | null
+    groupNickname: string | null
+    aliases: string | null
+    avatar: string | null
+    messageCount: number
+  }>
+
+  return { members: rows.map(mapMemberRow), total, page, pageSize, totalPages }
+}
+
+function mapMemberRow(row: {
+  id: number
+  platformId: string
+  accountName: string | null
+  groupNickname: string | null
+  aliases: string | null
+  avatar: string | null
+  messageCount: number
+}): MemberWithAliases {
+  return {
     id: row.id,
     platformId: row.platformId,
     accountName: row.accountName,
     groupNickname: row.groupNickname,
     aliases: row.aliases ? JSON.parse(row.aliases) : [],
+    avatar: row.avatar ?? null,
     messageCount: row.messageCount,
-  }))
+  }
 }
 
 /**

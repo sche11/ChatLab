@@ -60,6 +60,7 @@ export {
   getConversationBetween,
   getMemberNameHistory,
   getMembersWithAliases,
+  getMembersPaginated,
   executeParameterizedSql,
 } from './message-queries'
 export type {
@@ -72,6 +73,8 @@ export type {
   ConversationData,
   MemberNameHistoryEntry,
   MemberWithAliases,
+  MembersPaginationParams,
+  MembersPaginatedResult,
 } from './message-queries'
 
 // Shared full-message SQL, types, and mapper

@@ -13,6 +13,8 @@ import type { DatabaseManager } from '@openchatlab/node-runtime'
 import type { TimeFilter } from '@openchatlab/shared-types'
 import {
   getSessionInfo,
+  getMembersWithAliases,
+  getMembersPaginated,
   getTimeRange,
   getAvailableYears,
   getMemberActivity,
@@ -201,23 +203,7 @@ export function registerWebRoutes(server: FastifyInstance, dbManager: DatabaseMa
 
   server.get<{ Params: { id: string } }>('/_web/sessions/:id/members', async (request) => {
     const db = ensureDb(dbManager, request.params.id)
-    const rows = db
-      .prepare(
-        `SELECT
-          m.id, m.platform_id as platformId,
-          m.account_name as accountName,
-          m.group_nickname as groupNickname,
-          m.aliases, m.avatar,
-          (SELECT COUNT(*) FROM message WHERE sender_id = m.id) as messageCount
-        FROM member m
-        WHERE COALESCE(m.account_name, '') != '系统消息'
-        ORDER BY messageCount DESC`
-      )
-      .all() as any[]
-    return rows.map((r: any) => ({
-      ...r,
-      aliases: r.aliases ? (typeof r.aliases === 'string' ? JSON.parse(r.aliases) : r.aliases) : [],
-    }))
+    return getMembersWithAliases(db)
   })
 
   server.get<{
@@ -225,52 +211,18 @@ export function registerWebRoutes(server: FastifyInstance, dbManager: DatabaseMa
     Querystring: { page?: string; pageSize?: string; search?: string; sortOrder?: string }
   }>('/_web/sessions/:id/members/paginated', async (request) => {
     const db = ensureDb(dbManager, request.params.id)
-    const page = Math.max(1, parseInt(request.query.page || '1', 10))
-    const pageSize = Math.min(100, Math.max(1, parseInt(request.query.pageSize || '20', 10)))
-    const search = request.query.search?.trim() || ''
-    const sortOrder = request.query.sortOrder === 'asc' ? 'ASC' : 'DESC'
-
-    let whereClause = ''
-    const params: unknown[] = []
-    if (search) {
-      whereClause = `WHERE (m.account_name LIKE ? OR m.group_nickname LIKE ? OR m.platform_id LIKE ? OR m.aliases LIKE ?)`
-      const searchParam = `%${search}%`
-      params.push(searchParam, searchParam, searchParam, searchParam)
-    }
-
-    const countRow = db.prepare(`SELECT COUNT(*) as total FROM member m ${whereClause}`).get(...params) as {
-      total: number
-    }
-    const total = countRow.total
-    const totalPages = Math.ceil(total / pageSize)
-    const offset = (page - 1) * pageSize
-
-    const rows = db
-      .prepare(
-        `SELECT
-          m.id, m.platform_id as platformId,
-          m.account_name as accountName,
-          m.group_nickname as groupNickname,
-          m.aliases, m.avatar,
-          COUNT(msg.id) as messageCount
-        FROM member m
-        LEFT JOIN message msg ON m.id = msg.sender_id
-        ${whereClause}
-        GROUP BY m.id
-        ORDER BY messageCount ${sortOrder}
-        LIMIT ? OFFSET ?`
-      )
-      .all(...params, pageSize, offset) as any[]
-
+    const result = getMembersPaginated(db, {
+      page: parseInt(request.query.page || '1', 10),
+      pageSize: parseInt(request.query.pageSize || '20', 10),
+      search: request.query.search,
+      sortOrder: request.query.sortOrder === 'asc' ? 'asc' : 'desc',
+    })
     return {
-      items: rows.map((r: any) => ({
-        ...r,
-        aliases: r.aliases ? (typeof r.aliases === 'string' ? JSON.parse(r.aliases) : r.aliases) : [],
-      })),
-      total,
-      page,
-      pageSize,
-      totalPages,
+      items: result.members,
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      totalPages: result.totalPages,
     }
   })
 
