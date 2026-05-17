@@ -199,6 +199,8 @@ export {
   BUILTIN_MODELS,
   getBuiltinModelsByProvider,
   getBuiltinModelById,
+  extractThinkingContent,
+  stripToolCallTags,
 } from './ai'
 
 // Import utilities

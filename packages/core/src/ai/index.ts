@@ -22,3 +22,6 @@ export { BUILTIN_PROVIDERS, getBuiltinProviderById } from './provider-registry'
 
 // Model Catalog（内置模型目录）
 export { BUILTIN_MODELS, getBuiltinModelsByProvider, getBuiltinModelById } from './model-catalog'
+
+// Content parsing (thinking-tag extraction, tool-call stripping)
+export { extractThinkingContent, stripToolCallTags } from './content-parser'

@@ -21,7 +21,7 @@ import {
 import type { AgentConfig, AgentStreamChunk, AgentResult, SkillContext } from './types'
 import type { AssistantConfig } from '../assistant/types'
 import { buildSystemPrompt } from './prompt-builder'
-import { extractThinkingContent, stripToolCallTags } from './content-parser'
+import { extractThinkingContent, stripToolCallTags } from '@openchatlab/core'
 import { AgentEventHandler } from './event-handler'
 
 type SimpleHistoryMessage = { role: 'user' | 'assistant' | 'summary'; content: string }
