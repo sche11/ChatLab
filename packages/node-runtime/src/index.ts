@@ -115,6 +115,18 @@ export type { PiModelConfig, BuildPiModelOptions } from './ai'
 export { fetchRemoteModels, validateApiKey } from './ai'
 export type { RemoteModel, FetchRemoteModelsResult, RemoteApiOptions } from './ai'
 
+// Merger orchestration
+export { checkConflictsFromSources, buildMergedOutput, serializeChatLabToJsonl } from './merger'
+export type {
+  MergerDataSource,
+  MergerSourceMeta,
+  MergeSourceInfo,
+  ChatLabHeader,
+  ChatLabMeta,
+  ChatLabOutput,
+  MergeOrchestrationResult,
+} from './merger'
+
 // Re-exports: @mariozechner/pi-agent-core & @mariozechner/pi-ai
 export type { AgentTool, AgentToolResult } from './ai'
 export { Type, completeSimple, streamSimple } from './ai'
