@@ -55,7 +55,8 @@ export type { ActivateSkillToolOptions, ActivateSkillTool, ActivateSkillToolResu
 
 // Compression
 export type { CompressionConfig, CompressionResult, CompressionLogger, CompressionLlmAdapter } from './compression'
-export { checkAndCompress, manualCompress } from './compression'
+export { checkAndCompress, manualCompress, createCompressionLlmAdapter } from './compression'
+export type { CreateCompressionLlmAdapterOptions } from './compression'
 
 // Preprocessor
 export type {

@@ -603,6 +603,33 @@ export function getChatSessionList(db: DatabaseAdapter): ChatSessionItem[] {
 }
 
 /**
+ * Load messages for a chat session (for summary generation).
+ */
+export function loadSessionMessages(
+  db: DatabaseAdapter,
+  chatSessionId: number,
+  limit: number = 500
+): Array<{ senderName: string; content: string | null }> | null {
+  try {
+    return db
+      .prepare(
+        `SELECT
+          COALESCE(mb.group_nickname, mb.account_name, mb.platform_id) as senderName,
+          m.content
+        FROM message_context mc
+        JOIN message m ON m.id = mc.message_id
+        JOIN member mb ON mb.id = m.sender_id
+        WHERE mc.session_id = ?
+        ORDER BY m.ts ASC
+        LIMIT ?`
+      )
+      .all(chatSessionId, limit) as unknown as Array<{ senderName: string; content: string | null }>
+  } catch {
+    return null
+  }
+}
+
+/**
  * Get summary text for a single chat session.
  */
 export function getChatSessionSummary(db: DatabaseAdapter, chatSessionId: number): string | null {
@@ -810,4 +837,132 @@ export function generateIncrementalSessionIndex(
 
     return newSessionCount
   })
+}
+
+// ==================== Export data ====================
+
+export interface ExportSessionData {
+  meta: {
+    name: string
+    platform: string
+    type: string
+    groupId?: string
+    groupAvatar?: string
+  }
+  members: Array<{
+    platformId: string
+    accountName: string
+    groupNickname?: string
+    avatar?: string
+  }>
+  messages: Array<{
+    sender: string
+    accountName: string
+    groupNickname?: string
+    timestamp: number
+    type: number
+    content: string | null
+  }>
+}
+
+/**
+ * Query all data needed for session export (meta + members + messages).
+ */
+export function getExportSessionData(db: DatabaseAdapter): ExportSessionData {
+  const meta = db.prepare('SELECT * FROM meta').get() as {
+    name: string
+    platform: string
+    type: string
+    group_id?: string
+    group_avatar?: string
+  }
+  if (!meta) throw new Error('Cannot read session meta')
+
+  const members = db.prepare('SELECT platform_id, account_name, group_nickname, avatar FROM member').all() as Array<{
+    platform_id: string
+    account_name?: string
+    group_nickname?: string
+    avatar?: string
+  }>
+
+  const messages = db
+    .prepare(
+      `SELECT
+        m.platform_id as sender,
+        msg.sender_account_name as accountName,
+        msg.sender_group_nickname as groupNickname,
+        msg.ts as timestamp,
+        msg.type,
+        msg.content
+      FROM message msg
+      JOIN member m ON msg.sender_id = m.id
+      ORDER BY msg.ts`
+    )
+    .all() as unknown as Array<{
+    sender: string
+    accountName?: string
+    groupNickname?: string
+    timestamp: number
+    type: number
+    content?: string
+  }>
+
+  return {
+    meta: {
+      name: meta.name,
+      platform: meta.platform,
+      type: meta.type,
+      groupId: meta.group_id,
+      groupAvatar: meta.group_avatar,
+    },
+    members: members.map((m) => ({
+      platformId: m.platform_id,
+      accountName: m.account_name || m.platform_id,
+      groupNickname: m.group_nickname || undefined,
+      avatar: m.avatar,
+    })),
+    messages: messages.map((msg) => ({
+      sender: msg.sender,
+      accountName: msg.accountName || msg.sender,
+      groupNickname: msg.groupNickname || undefined,
+      timestamp: msg.timestamp,
+      type: msg.type,
+      content: msg.content ?? null,
+    })),
+  }
+}
+
+/**
+ * Get private chat partner's avatar.
+ * Finds the "other" member (not the owner) in a private chat, falling back to name match or first with avatar.
+ */
+export function getPrivateChatMemberAvatar(
+  db: DatabaseAdapter,
+  sessionName: string,
+  ownerId: string | null | undefined
+): string | null {
+  const members = db
+    .prepare(
+      `SELECT
+        m.platform_id as platformId,
+        COALESCE(m.group_nickname, m.account_name, m.platform_id) as name,
+        m.avatar
+      FROM member m
+      WHERE COALESCE(m.account_name, '') != '系统消息'
+      ORDER BY (SELECT COUNT(*) FROM message WHERE sender_id = m.id) DESC`
+    )
+    .all() as unknown as Array<{ platformId: string; name: string; avatar: string | null }>
+
+  if (members.length === 0) return null
+
+  if (ownerId) {
+    const other = members.find((m) => m.platformId !== ownerId)
+    if (other?.avatar) return other.avatar
+  }
+
+  const sameName = members.find((m) => m.name === sessionName)
+  if (sameName?.avatar) return sameName.avatar
+
+  const firstWithAvatar = members.find((m) => m.avatar)
+  return firstWithAvatar?.avatar || null
 }

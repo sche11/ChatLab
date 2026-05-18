@@ -27,6 +27,7 @@ import {
   buildSessionInfo,
   getSummaryCount,
   getLastPlatformMessageId,
+  getPrivateChatMemberAvatar,
   type SessionOverview,
 } from '@openchatlab/core'
 import type { DatabaseAdapter } from '@openchatlab/core'
@@ -46,41 +47,6 @@ function isChatSessionDb(db: Database.Database): boolean {
     .prepare("SELECT COUNT(*) as cnt FROM sqlite_master WHERE type='table' AND name IN ('meta', 'member', 'message')")
     .get() as { cnt: number }
   return requiredTableCount.cnt === 3
-}
-
-/**
- * 获取私聊对方成员的头像
- * 逻辑参考 private-chat/index.vue 的 otherMemberAvatar
- */
-function getPrivateChatMemberAvatar(
-  db: Database.Database,
-  sessionName: string,
-  ownerId: string | null | undefined
-): string | null {
-  const members = db
-    .prepare(
-      `SELECT
-        m.platform_id as platformId,
-        COALESCE(m.group_nickname, m.account_name, m.platform_id) as name,
-        m.avatar
-      FROM member m
-      WHERE COALESCE(m.account_name, '') != '系统消息'
-      ORDER BY (SELECT COUNT(*) FROM message WHERE sender_id = m.id) DESC`
-    )
-    .all() as Array<{ platformId: string; name: string; avatar: string | null }>
-
-  if (members.length === 0) return null
-
-  if (ownerId) {
-    const other = members.find((m) => m.platformId !== ownerId)
-    if (other?.avatar) return other.avatar
-  }
-
-  const sameName = members.find((m) => m.name === sessionName)
-  if (sameName?.avatar) return sameName.avatar
-
-  const firstWithAvatar = members.find((m) => m.avatar)
-  return firstWithAvatar?.avatar || null
 }
 
 /**
@@ -135,7 +101,7 @@ export function getAllSessions(): any[] {
 
         let memberAvatar: string | null = null
         if (meta.type === 'private') {
-          memberAvatar = getPrivateChatMemberAvatar(db, meta.name, meta.ownerId)
+          memberAvatar = getPrivateChatMemberAvatar(asCoreDb(db), meta.name, meta.ownerId)
         }
 
         sessions.push({

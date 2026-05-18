@@ -20,6 +20,7 @@ import * as skillManager from '../ai/skills'
 import {
   checkAndCompress,
   manualCompress,
+  createCompressionLlmAdapter,
   type CompressionConfig,
   type CompressionLlmAdapter,
   completeSimple,
@@ -43,38 +44,15 @@ const compressionLogger = {
   error: (cat: string, msg: string, extra?: Record<string, unknown>) => aiLogger.error(cat, msg, extra),
 }
 
-function createCompressionLlmAdapter(
-  activeAIConfig: AIServiceConfig,
-  onCompressing?: () => void
-): CompressionLlmAdapter {
+function buildCompressionAdapter(activeAIConfig: AIServiceConfig, onCompressing?: () => void): CompressionLlmAdapter {
   const modelDef = findModelDefinition(activeAIConfig.provider, activeAIConfig.model || '')
-  const contextWindow = modelDef?.contextWindow ?? DEFAULT_CONTEXT_WINDOW
-  const piModel = buildPiModel(activeAIConfig)
-
-  return {
-    contextWindow,
-    compress: async (prompt: string, maxTokens: number) => {
-      onCompressing?.()
-      try {
-        const result = await completeSimple(
-          piModel,
-          {
-            systemPrompt: undefined,
-            messages: [{ role: 'user', content: [{ type: 'text', text: prompt }], timestamp: Date.now() }] as any,
-          },
-          { apiKey: activeAIConfig.apiKey, maxTokens }
-        )
-        const text = result.content
-          .filter((item): item is PiTextContent => item.type === 'text')
-          .map((item) => item.text)
-          .join('')
-        return text || null
-      } catch (error) {
-        aiLogger.warn('Compression', 'LLM compression attempt failed', { error: String(error) })
-        return null
-      }
-    },
-  }
+  return createCompressionLlmAdapter({
+    piModel: buildPiModel(activeAIConfig),
+    apiKey: activeAIConfig.apiKey,
+    contextWindow: modelDef?.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+    onCompressing,
+    onError: (error) => aiLogger.warn('Compression', 'LLM compression attempt failed', { error: String(error) }),
+  })
 }
 
 function toPiSimpleMessages(messages: Array<{ role: string; content: string }>, timestamp: number): PiMessage[] {
@@ -993,7 +971,7 @@ export function registerAIHandlers({ win }: IpcContext): void {
               context.conversationId,
               compressionConfig,
               systemPromptForCompression,
-              createCompressionLlmAdapter(activeAIConfig, () => {
+              buildCompressionAdapter(activeAIConfig, () => {
                 win.webContents.send('agent:streamChunk', {
                   requestId,
                   chunk: {
@@ -1250,7 +1228,7 @@ export function registerAIHandlers({ win }: IpcContext): void {
           conversationId,
           compressionConfig,
           systemPrompt,
-          createCompressionLlmAdapter(activeAIConfig),
+          buildCompressionAdapter(activeAIConfig),
           getConversationManager(),
           compressionLogger
         )

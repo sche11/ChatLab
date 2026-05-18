@@ -4,3 +4,4 @@
 
 export type { CompressionConfig, CompressionResult, CompressionLogger, CompressionLlmAdapter } from './types'
 export { checkAndCompress, manualCompress } from './compressor'
+export { createCompressionLlmAdapter, type CreateCompressionLlmAdapterOptions } from './adapter-factory'

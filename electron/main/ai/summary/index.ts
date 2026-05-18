@@ -7,8 +7,10 @@
 
 import Database from 'better-sqlite3'
 import { completeSimple, type PiTextContent } from '@openchatlab/node-runtime'
+import { loadSessionMessages, getChatSessionSummary, saveChatSessionSummary } from '@openchatlab/core'
 import { getFastModelConfig, buildPiModel } from '../llm'
 import { getDbPath, openDatabase } from '../../database/core'
+import { wrapAsDatabaseAdapter } from '../../worker/core'
 import { aiLogger } from '../logger'
 import { t } from '../../i18n'
 import {
@@ -24,18 +26,7 @@ function buildDeps(dbSessionId: string): SummaryDeps {
       const db = openDatabase(dbSessionId, true)
       if (!db) return null
       try {
-        const sql = `
-          SELECT
-            COALESCE(mb.group_nickname, mb.account_name, mb.platform_id) as senderName,
-            m.content
-          FROM message_context mc
-          JOIN message m ON m.id = mc.message_id
-          JOIN member mb ON mb.id = m.sender_id
-          WHERE mc.session_id = ?
-          ORDER BY m.ts ASC
-          LIMIT ?
-        `
-        return db.prepare(sql).all(chatSessionId, limit) as Array<{ senderName: string; content: string | null }>
+        return loadSessionMessages(wrapAsDatabaseAdapter(db), chatSessionId, limit)
       } catch (error) {
         aiLogger.error('Summary', `Failed to get session messages: ${error}`)
         return null
@@ -46,7 +37,7 @@ function buildDeps(dbSessionId: string): SummaryDeps {
       const dbPath = getDbPath(dbSessionId)
       const db = new Database(dbPath)
       try {
-        db.prepare('UPDATE chat_session SET summary = ? WHERE id = ?').run(summary, chatSessionId)
+        saveChatSessionSummary(wrapAsDatabaseAdapter(db), chatSessionId, summary)
       } finally {
         db.close()
       }
@@ -56,10 +47,7 @@ function buildDeps(dbSessionId: string): SummaryDeps {
       const db = openDatabase(dbSessionId, true)
       if (!db) return null
       try {
-        const row = db.prepare('SELECT summary FROM chat_session WHERE id = ?').get(chatSessionId) as
-          | { summary: string | null }
-          | undefined
-        return row?.summary || null
+        return getChatSessionSummary(wrapAsDatabaseAdapter(db), chatSessionId)
       } catch {
         return null
       }

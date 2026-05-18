@@ -7,10 +7,10 @@
 
 import {
   runAgentCore,
-  completeSimple,
   checkAndCompress,
   buildSystemPrompt,
   createAiTranslate,
+  createCompressionLlmAdapter,
   AgentEventHandler,
   formatAIError,
   type AgentStreamChunk,
@@ -18,8 +18,6 @@ import {
   type SimpleHistoryMessage,
   type AIConversationManager,
   type CompressionConfig,
-  type CompressionLlmAdapter,
-  type PiTextContent,
   type AgentTool,
   type DataSnapshot,
   type OwnerInfo,
@@ -103,29 +101,11 @@ export async function runServerAgent(options: RunAgentOptions): Promise<void> {
   })
 
   if (compressionConfig?.enabled) {
-    const llmAdapter: CompressionLlmAdapter = {
-      contextWindow: piModel.contextWindow ?? 128000,
-      compress: async (prompt: string, maxTokens: number) => {
-        handler.emitStatus('compressing', [])
-        try {
-          const result = await completeSimple(
-            piModel,
-            {
-              systemPrompt: undefined,
-              messages: [{ role: 'user', content: [{ type: 'text', text: prompt }], timestamp: Date.now() }] as any,
-            },
-            { apiKey: llmConfig.apiKey, maxTokens }
-          )
-          const text = result.content
-            .filter((item): item is PiTextContent => item.type === 'text')
-            .map((item) => item.text)
-            .join('')
-          return text || null
-        } catch {
-          return null
-        }
-      },
-    }
+    const llmAdapter = createCompressionLlmAdapter({
+      piModel,
+      apiKey: llmConfig.apiKey,
+      onCompressing: () => handler.emitStatus('compressing', []),
+    })
     const compressionResult = await checkAndCompress(
       conversationId,
       compressionConfig,

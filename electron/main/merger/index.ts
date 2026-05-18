@@ -181,6 +181,8 @@ export async function mergeFilesWithTempDb(
 
 import Database from 'better-sqlite3'
 import { getDbPath } from '../database/core'
+import { getExportSessionData } from '@openchatlab/core'
+import { wrapAsDatabaseAdapter } from '../worker/core'
 
 export async function exportSessionToTempFile(sessionId: string): Promise<string> {
   const dbPath = getDbPath(sessionId)
@@ -191,74 +193,26 @@ export async function exportSessionToTempFile(sessionId: string): Promise<string
   const db = new Database(dbPath, { readonly: true })
 
   try {
-    const meta = db.prepare('SELECT * FROM meta').get() as {
-      name: string
-      platform: string
-      type: string
-      group_id?: string
-      group_avatar?: string
-    }
-
-    if (!meta) {
-      throw new Error('Cannot read session meta')
-    }
-
-    const members = db.prepare('SELECT platform_id, account_name, group_nickname, avatar FROM member').all() as Array<{
-      platform_id: string
-      account_name?: string
-      group_nickname?: string
-      avatar?: string
-    }>
-
-    const messages = db
-      .prepare(
-        `SELECT
-          m.platform_id as sender,
-          msg.sender_account_name as accountName,
-          msg.sender_group_nickname as groupNickname,
-          msg.ts as timestamp,
-          msg.type,
-          msg.content
-        FROM message msg
-        JOIN member m ON msg.sender_id = m.id
-        ORDER BY msg.ts`
-      )
-      .all() as Array<{
-      sender: string
-      accountName?: string
-      groupNickname?: string
-      timestamp: number
-      type: number
-      content?: string
-    }>
+    const data = getExportSessionData(wrapAsDatabaseAdapter(db))
 
     const chatLabData: ChatLabFormat = {
       chatlab: {
         version: '0.0.1',
         exportedAt: Math.floor(Date.now() / 1000),
         generator: 'ChatLab Export',
-        description: `Exported from session: ${meta.name}`,
+        description: `Exported from session: ${data.meta.name}`,
       },
       meta: {
-        name: meta.name,
-        platform: meta.platform as ChatPlatform,
-        type: meta.type as ChatType,
-        groupId: meta.group_id,
-        groupAvatar: meta.group_avatar,
+        name: data.meta.name,
+        platform: data.meta.platform as ChatPlatform,
+        type: data.meta.type as ChatType,
+        groupId: data.meta.groupId,
+        groupAvatar: data.meta.groupAvatar,
       },
-      members: members.map((m) => ({
-        platformId: m.platform_id,
-        accountName: m.account_name || m.platform_id,
-        groupNickname: m.group_nickname || undefined,
-        avatar: m.avatar,
-      })),
-      messages: messages.map((msg) => ({
-        sender: msg.sender,
-        accountName: msg.accountName || msg.sender,
-        groupNickname: msg.groupNickname || undefined,
-        timestamp: msg.timestamp,
+      members: data.members,
+      messages: data.messages.map((msg) => ({
+        ...msg,
         type: msg.type as ChatLabMessage['type'],
-        content: msg.content ?? null,
       })),
     }
 
@@ -267,7 +221,7 @@ export async function exportSessionToTempFile(sessionId: string): Promise<string
     const tempFilePath = path.join(tempDir, `export_${sessionId}_${Date.now()}.json`)
     fs.writeFileSync(tempFilePath, JSON.stringify(chatLabData, null, 2), 'utf-8')
 
-    console.log(`[Merger] Exporting session to temp file: ${tempFilePath}, message count: ${messages.length}`)
+    console.log(`[Merger] Exporting session to temp file: ${tempFilePath}, message count: ${data.messages.length}`)
 
     return tempFilePath
   } finally {

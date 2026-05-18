@@ -96,7 +96,8 @@ export type {
 
 // Compression
 export type { CompressionConfig, CompressionResult, CompressionLogger, CompressionLlmAdapter } from './ai'
-export { checkAndCompress, manualCompress } from './ai'
+export { checkAndCompress, manualCompress, createCompressionLlmAdapter } from './ai'
+export type { CreateCompressionLlmAdapterOptions } from './ai'
 
 // SkillManager
 export { SkillManager } from './ai'
