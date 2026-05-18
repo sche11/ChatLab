@@ -199,6 +199,15 @@ export type {
   ChatLabOutput,
   MergeOrchestrationResult,
 } from './merger'
+export {
+  TempDbWriter,
+  TempDbReader,
+  exportSessionToJson,
+  deleteTempDatabase,
+  cleanupTempDatabases,
+  TEMP_DB_SCHEMA,
+} from './merger/temp-db'
+export type { TempDbMeta, ExportedSession } from './merger/temp-db'
 
 // Re-exports: @mariozechner/pi-agent-core & @mariozechner/pi-ai
 export type { AgentTool, AgentToolResult } from './ai'
