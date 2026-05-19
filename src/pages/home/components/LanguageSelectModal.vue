@@ -5,6 +5,7 @@ import { useSettingsStore } from '@/stores/settings'
 import UITabs from '@/components/UI/Tabs.vue'
 import { availableLocales, type LocaleType } from '@/i18n'
 import { usePreferencesService } from '@/services'
+import { resolveLanguageBootstrap } from '../onboardingFlow'
 
 const emit = defineEmits<{
   (e: 'done'): void
@@ -30,8 +31,10 @@ const currentLocale = computed({
 onMounted(async () => {
   try {
     const savedLocale = await usePreferencesService().getLocale()
-    if (!savedLocale) {
-      isOpen.value = true
+    const bootstrap = resolveLanguageBootstrap(savedLocale)
+    isOpen.value = bootstrap.shouldOpenLanguageModal
+    if (bootstrap.shouldContinue) {
+      emit('done')
     }
   } catch {
     isOpen.value = true
@@ -45,12 +48,6 @@ function handleNext() {
   isOpen.value = false
   emit('done')
 }
-
-function wasSkipped(): boolean {
-  return !isOpen.value
-}
-
-defineExpose({ wasSkipped })
 </script>
 
 <template>
