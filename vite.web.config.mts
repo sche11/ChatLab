@@ -46,7 +46,7 @@ function chatlabServePlugin(): Plugin {
 
       const inUse = await isPortInUse(BACKEND_PORT)
       if (inUse) {
-        console.log(`[chatlab serve] 端口 ${BACKEND_PORT} 已在使用中，跳过启动`)
+        console.log(`[chatlab serve] Port ${BACKEND_PORT} already in use, skipping`)
         return
       }
 
@@ -54,7 +54,7 @@ function chatlabServePlugin(): Plugin {
       const coreDir = resolve(__dirname, 'packages/core/src')
       const runtimeDir = resolve(__dirname, 'packages/node-runtime/src')
       serverProcess = spawn(
-        'npx',
+        'pnpm',
         [
           'tsx',
           'watch',

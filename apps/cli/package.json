@@ -1,12 +1,11 @@
 {
   "name": "chatlab-cli",
   "version": "0.1.0",
-  "description": "ChatLab CLI & Service - 聊天记录分析工具",
-  "type": "module",
+  "description": "ChatLab CLI & Service - Chat history analysis tool",
   "bin": {
-    "chatlab": "./bin/chatlab.js"
+    "chatlab": "./bin/chatlab.mjs"
   },
-  "main": "./dist/index.js",
+  "main": "./dist/index.mjs",
   "files": [
     "bin/",
     "dist/",

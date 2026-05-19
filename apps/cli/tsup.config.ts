@@ -7,6 +7,7 @@ export default defineConfig({
   },
   format: ['esm'],
   outDir: 'dist',
+  outExtension: () => ({ js: '.mjs' }),
   splitting: true,
   sourcemap: true,
   clean: true,
