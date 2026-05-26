@@ -1,5 +1,60 @@
 [
   {
+    "version": "0.22.0",
+    "date": "2026-05-26",
+    "summary": "This update improves the default UI styling, adds CLI Web update and storage management features, and strengthens home import, documentation, and multi-platform stability.",
+    "changes": [
+      {
+        "type": "feat",
+        "items": [
+          "Restructure the home import area into separate entry points, with new API import and auto-sync options",
+          "Bundle changelogs with the app to reduce runtime dependency on remote resources",
+          "【CLI Web】Add storage management in Web settings for viewing and managing data cache",
+          "【CLI】Add update checking and auto-update flow, with update checks exposed in CLI Web",
+          "【Docs】Add the standalone docs.chatlab.fun documentation site"
+        ]
+      },
+      {
+        "type": "fix",
+        "items": [
+          "Restore missing quick start buttons on the home page",
+          "Fix incorrect i18n key paths and deprecated ECharts api.style() usage",
+          "Harden self-update and migration retry safety checks",
+          "【Desktop】Prevent unified migration from reverting data directory changes",
+          "【CLI Web】Remove the broken Update Now action when a new version is detected",
+          "【CLI Web】Disable the unavailable Web self-update execution path",
+          "【CLI Web】Fix file manager actions that relied on shell execution, improving compatibility and safety",
+          "【CLI Web】Keep the Web service running after data directory warnings",
+          "【CLI Web】Add compatibility shims for merge-related APIs",
+          "【CLI】Improve update checks with async caching, better keypress handling, and a development-mode bypass"
+        ]
+      },
+      {
+        "type": "refactor",
+        "items": [
+          "Move documentation links to docs.chatlab.fun",
+          "【Settings】Move session index into AI settings and reorder the settings tabs"
+        ]
+      },
+      {
+        "type": "style",
+        "items": ["Improve sidebar density and increase tab selector contrast in dark mode"]
+      },
+      {
+        "type": "docs",
+        "items": ["Restructure the public documentation site and export guide"]
+      },
+      {
+        "type": "chore",
+        "items": [
+          "Migrate workspace packages to ESM",
+          "Isolate documentation site workspace dependencies",
+          "Move release changelogs out of the docs directory"
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.21.1",
     "date": "2026-05-23",
     "summary": "Improve pull sync reliability and data safety, add an option to clean up imported chats when removing subscriptions, and fix UI animation and modal interaction issues.",
