@@ -1,5 +1,36 @@
 [
   {
+    "version": "0.26.1",
+    "date": "2026-06-10",
+    "summary": "Fix several tool-call history replay issues and complete tool-call persistence and replay support; add Token cache usage stats to the status bar and support multiple export formats.",
+    "changes": [
+      {
+        "type": "feat",
+        "items": [
+          "Add Token cache hit/miss usage display to the chat status bar",
+          "Support TXT, JSON, and Markdown export formats"
+        ]
+      },
+      {
+        "type": "fix",
+        "items": [
+          "Persist and replay tool calls across conversation turns to maintain multi-turn AI context",
+          "Fix tool-only assistant turns being filtered out during history replay, causing tool results to be lost",
+          "Fix repeated exports of the same session silently overwriting the previous file due to a deterministic filename",
+          "Desktop: Fix large session exports failing prematurely due to the 60-second IPC timeout",
+          "Fix DeepSeek tool-call turns not replaying `reasoning_content` in history",
+          "Fix replayed tool results not being counted correctly in history compression token accounting",
+          "Fix raw message data leaking into the tool result text sent to the model",
+          "Fix the tool panel not closing when clicking outside"
+        ]
+      },
+      {
+        "type": "refactor",
+        "items": ["Extract the session page header into a shared component"]
+      }
+    ]
+  },
+  {
     "version": "0.26.0",
     "date": "2026-06-10",
     "summary": "Add an AI analysis planner with streaming structured plan generation and chart planning integration; improve chart mode tool availability and fix several AI and import issues.",
