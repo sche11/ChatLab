@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.26.2 (2026-06-13)
+
+> Improve the 'Who am I' session identity feature with manual owner profile selection and automatic batch-fill across same-platform sessions; fix several chart rendering and AI cache issues.
+
+### ✨ Features
+
+- Add 'Who am I' session identity feature: manually confirm your identity to save a platform owner profile and automatically match it across other unowned sessions on the same platform
+- Automatically apply the saved owner profile after import or pull sync, reducing manual setup
+
+### 🐛 Bug Fixes
+
+- Fix ownerId cache inconsistency when batch-filling sessions on name-match platforms (WhatsApp / Line / Instagram)
+- Fix owner profile being overwritten by stale values when multiple routes share independent PreferencesManager instances
+- [CLI] Fix stale preferences cache in the sync module causing newly imported sessions to miss the owner profile during long-running server sessions
+- Fix temporary files not being fully deleted after import
+- Fix chart flickering during AI streaming generation
+- Fix unstable render order in AI-generated charts
+- Fix empty placeholder rows appearing in AI-generated charts
+- Add progress indicator during AI chart generation
+- Fix charts appearing incomplete in screenshots due to missing resize step before capture
+- Clarify that last_message_time represents data coverage end time, not the group's last activity time
+- Fix stale overview and analysis caches not being invalidated after incremental import
+
 ## v0.26.1 (2026-06-10)
 
 > Fix several tool-call history replay issues and complete tool-call persistence and replay support; add Token cache usage stats to the status bar and support multiple export formats.
