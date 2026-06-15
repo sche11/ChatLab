@@ -1,30 +1,32 @@
 ---
 layout: doc
-title: ChatLab Docs
+title: ChatLab Docs | Open-Source Chat History Analysis Tool
 ---
 
-# ChatLab Docs
+# ChatLab
 
-Welcome to the ChatLab documentation. Use the sidebar to browse topics, or jump in directly:
+ChatLab is a free, open-source, local-first chat history analysis tool. It supports importing records from WhatsApp, QQ, LINE, Discord, Instagram, Telegram, and iMessage, and offers visual analytics and AI-powered conversation features — with all data stored locally, never uploaded to the cloud.
 
-- [Get Started](/intro) — Learn what ChatLab is and how it works.
-- [ChatLab Format](/standard/chatlab-format) — Understand the interchange format.
+## How to Use ChatLab
 
-## Usage
+- [Introduction](/intro) — Learn what ChatLab is and what it can do.
+- [Quick Start](/usage/quick-start) — Step-by-step guide to installing ChatLab and importing your first chat records.
+- [Export & Import](/usage/how-to-export) — Export chat records from WhatsApp, QQ, LINE, and other platforms and import them into ChatLab.
+- [Configure AI](/usage/how-to-config-ai) — Connect OpenAI, Claude, DeepSeek, or other AI models to analyze your chat history in natural language.
+- [Troubleshooting](/usage/troubleshooting) — Fix common issues with failed imports, unsupported formats, and AI configuration errors.
 
-- [Quick Start](/usage/quick-start) — Import your first chat record and understand the basic workflow.
-- [Export And Import](/usage/how-to-export) — Prepare chat records from supported platforms and import them into ChatLab.
-- [Configure AI](/usage/how-to-config-ai) — Connect AI providers and use Agent tools to explore your chat history.
-- [Troubleshooting](/usage/troubleshooting) — Resolve common import, parsing, and AI configuration problems.
+## For Developers: Integrating with ChatLab
 
-## Standards
-
-- [Standards And API](/standard/chatlab-api) — Integrate external tools with ChatLab Format and the local REST API.
+- [API & Standards](/standard/chatlab-api) — ChatLab's local REST API for querying, importing, and analyzing chat data from external tools.
+- [ChatLab Format](/standard/chatlab-format) — The open chat data interchange format for cross-platform data compatibility.
+- [Push Import Protocol](/standard/chatlab-import) — Push external chat data into ChatLab via HTTP.
+- [Pull Data Source Protocol](/standard/chatlab-pull) — Expose standard HTTP endpoints so ChatLab can pull remote chat data on demand.
+- [AI Conversion Guide](/standard/ai-converter) — Use AI to convert unsupported chat export formats into ChatLab Format.
 
 ## Contributing
 
-- [Development Guide](/contributing/development) — Learn local setup, repository structure, architecture boundaries, and PR rules.
+- [Development Guide](/contributing/development) — Local development setup, repo structure, architecture boundaries, and PR guidelines for ChatLab.
 
 ## More
 
-- [Website And Roadmap](https://chatlab.fun) — Visit the product website for downloads, roadmap, and community links.
+- [Website & Roadmap](https://chatlab.fun) — Download ChatLab desktop app or CLI, view the product roadmap, and find community links.

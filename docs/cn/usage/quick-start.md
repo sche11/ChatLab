@@ -10,7 +10,7 @@ ChatLab 提供两种安装方式：
 
 **方式一：官网下载安装包**
 
-前往 [ChatLab 官网](https://chatlab.fun) 下载对应操作系统的安装包，双击安装即可。也可以从 [GitHub Releases](https://github.com/ChatLab/ChatLab/releases) 下载。
+前往 [ChatLab 官网](https://chatlab.fun) 或 [GitHub Releases](https://github.com/ChatLab/ChatLab/releases) 下载对应操作系统的安装包，双击安装即可。
 
 **方式二：CLI 安装**
 
@@ -18,7 +18,7 @@ ChatLab 提供两种安装方式：
 npm i chatlab-cli -g
 ```
 
-需要 Node.js ≥ 20。CLI 适合服务端部署或搭配 AI Agent（如 Claude Desktop）使用。
+需要 Node.js ≥ 20。
 
 安装后运行以下命令启动 ChatLab：
 
@@ -30,13 +30,17 @@ chatlab start --headless  # 仅启动 API，不挂载 Web UI（供脚本 / AI Ag
 
 常用选项：`--port <端口>`（默认 3110）、`--host <地址>`、`--token <令牌>`。
 
-如果希望服务常驻后台（开机自启 + 崩溃自动重启），加上 `--daemon` 参数：
+如果希望服务常驻后台（开机自启），加上 `--daemon` 参数：
 
 ```bash
 chatlab start --daemon   # 注册为系统服务，开机自启（macOS / Linux）
 chatlab status           # 查看常驻状态
 chatlab stop             # 停止并取消常驻
 ```
+
+::: tip
+`clb` 是 `chatlab` 的简写，两者完全等价。
+:::
 
 ## 第二步：导入聊天记录
 
