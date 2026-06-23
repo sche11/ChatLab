@@ -1,5 +1,35 @@
 [
   {
+    "version": "0.27.1",
+    "date": "2026-06-23",
+    "summary": "Add batched API embedding for faster index builds and lazy-loaded local models; fix semantic index resume-after-crash, sync cursor regression, and AI conversation export.",
+    "changes": [
+      {
+        "type": "feat",
+        "items": [
+          "Support batched embedding via API providers, significantly speeding up index builds",
+          "Switch local embedding models to lazy worker initialization, reducing startup overhead"
+        ]
+      },
+      {
+        "type": "fix",
+        "items": [
+          "Fix AI conversation export to correctly export currently visible AI conversations",
+          "Fix semantic index batched-write resume: prevent unique-constraint errors and stuck sessions after a mid-batch crash",
+          "Fix multiple semantic worker issues: config changes not forwarded to a running worker, availability probes causing failures in normal AI chats, and inaccurate active-build tracking leading to premature worker shutdown",
+          "Fix sync pull cursor: initial empty-page server watermark was discarded before retries, causing repeated refetches of the tail window",
+          "Fix sync pagination cursor regression that caused unnecessary duplicate imports"
+        ]
+      },
+      {
+        "type": "refactor",
+        "items": [
+          "Remove dead code and over-engineered abstractions; simplify the tool catalog structure and deep-merge logic"
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.27.0",
     "date": "2026-06-22",
     "summary": "Introduce vector index and evidence retrieval: locate and present chat evidence via semantic search, with a new index management UI.",
