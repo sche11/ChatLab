@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.28.1 (2026-06-26)
+
+> Improve chat record viewing, add the import API, and fix import, sync, and local model proxy download issues.
+
+### ✨ Features
+
+- Add the Push Import API with per-session append, deduplication, and incremental index generation
+- Automatically generate session indexes after imports across CLI, Desktop, and pull sync paths
+- Improve chat record viewer controls and highlight behavior
+- Hide the sidebar scrollbar by default and show it on hover
+
+### 🐛 Bug Fixes
+
+- Harden Push/Pull import validation, deduplication, and concurrency locks to avoid invalid writes or duplicate imports
+- Include lastPlatformMessageId and importedAt in GET /api/v1/sessions/:id for incremental import boundaries
+- Refresh the session list automatically after background pull sync completes
+- Fix local semantic index model downloads so they use the configured proxy correctly, and initialize worker logging
+- [Desktop] Align the default API port with CLI at 3110 and try following ports automatically when it is occupied
+- [Desktop] Resolve HTTP, HTTPS, and SOCKS system proxy results to avoid silently bypassing the proxy for local model downloads
+
+### ♻️ Refactoring
+
+- [CLI] Move pull/sync import paths to the shared streaming importer and remove the legacy parser/write path
+- [Desktop] Remove redundant session index generation after incremental imports
+
+### 📝 Documentation
+
+- Fix API port references, examples, and documentation for unavailable capabilities
+
 ## v0.28.0 (2026-06-25)
 
 > Add Google Chat import support, introduce a unified app logger with file rotation, and improve the semantic index experience.
