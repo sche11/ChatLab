@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.30.0 (2026-07-05)
+
+> Add an Agent-oriented entry point and improve chat record filtering, export, avatar import, and sync behavior.
+
+### ✨ Features
+
+- [CLI] Add commands for external Agents
+- Filter chat record dialogs by member with the shared member search selector
+
+### 🐛 Bug Fixes
+
+- Improve display of messy chat content and reduce rendering issues in the record dialog
+- Fix CSV export failures in SQL Lab
+- Preserve avatars when importing JSONL and other streamed member data, including incremental avatar imports
+- Open AI logs through the shared route so local CLI Web and Desktop behave consistently
+- Refresh the overview identity card when the selected time range changes
+
+### 📝 Documentation
+
+- Add Agent query command documentation and provide the chatlab-analyze skill entry point
+
 ## v0.29.0 (2026-07-01)
 
 > Add Contacts, introduce the relationship galaxy, and improve contact computation, avatar loading, and sidebar performance.
