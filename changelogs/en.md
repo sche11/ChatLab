@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.31.0 (2026-07-13)
+
+> Refresh the overall interface, add automatic incremental imports on Home, introduce personal insights, and improve identity management and import compatibility.
+
+### ✨ Features
+
+- Add automatic session matching and incremental import orchestration so repeated exports can continue into existing sessions more naturally
+- Add a global Insights entry with yearly activity overviews, calendar heatmaps, and message trends
+- Manage session owner identities in Settings, preserving owner and member alias metadata across export and reimport
+- [CLI] Support automatic incremental imports
+- [Desktop] Support automatic incremental imports
+
+### 🐛 Bug Fixes
+
+- Fix ChatLab JSON exports so they can be imported again while preserving member, owner, and alias metadata
+- Improve automatic incremental import deduplication, mixed message identity handling, and ChatLab reimport disambiguation
+- Support bracketed timestamps and dotted AM/PM markers in WhatsApp TXT parsing
+
+### ♻️ Refactoring
+
+- Unify navigation, card, and report component structures to reduce interaction differences between pages
+
+### 💄 Styles
+
+- Refine the sidebar, input area, filter controls, and Settings tab styling
+- Compact the session time filters and AI conversation sidebar layout for denser information display
+
 ## v0.30.2 (2026-07-10)
 
 > Further improve import performance and refine semantic indexing, local model downloads, and related workflows.
