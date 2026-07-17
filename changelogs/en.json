@@ -1,5 +1,26 @@
 [
   {
+    "version": "0.31.3",
+    "date": "2026-07-17",
+    "summary": "Add batch member deletion, refine the default assistant system prompt, reorganize rankings, and improve temporary directory cleanup.",
+    "changes": [
+      {
+        "type": "feat",
+        "items": [
+          "Support batch deletion of selected members with an impact confirmation before applying changes",
+          "Separate group chat analysis into Insights and Rankings, bringing overall, repeat, catchphrase, and keyword rankings together"
+        ]
+      },
+      {
+        "type": "refactor",
+        "items": [
+          "Unify the HTTP server, error model, system and session routes, and JSON Push protocol across Desktop and CLI Web",
+          "Reorganize Desktop startup, window, path, and runtime modules, and remove redundant re-export layers"
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.31.2",
     "date": "2026-07-16",
     "summary": "Unify member management for group and private chats, improve automatic import guidance, and fix screenshot copying and interface stability.",
